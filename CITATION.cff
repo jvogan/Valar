@@ -4,7 +4,7 @@ message: If you use Valar in research, tooling, or derived work, please cite the
 type: software
 version: 1.0.0
 date-released: "2026-04-09"
-repository-code: https://github.com/valartts/valartts
+repository-code: https://github.com/jvogan/Valar
 authors:
   - family-names: Vogan
     given-names: Jacob

@@ -22,9 +22,9 @@ enum AboutInfo {
 
     static let copyright = "© 2024 Prince Canuma, 2026 Valar contributors"
 
-    static let githubURL = URL(string: "https://github.com/valartts/valartts")!
-    static let docsURL = URL(string: "https://github.com/valartts/valartts/tree/main/docs")!
-    static let licenseURL = URL(string: "https://github.com/valartts/valartts/blob/main/LICENSE")!
+    static let githubURL = URL(string: "https://github.com/jvogan/Valar")!
+    static let docsURL = URL(string: "https://github.com/jvogan/Valar/tree/main/docs")!
+    static let licenseURL = URL(string: "https://github.com/jvogan/Valar/blob/main/LICENSE")!
 }
 
 struct AboutView: View {

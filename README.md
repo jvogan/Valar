@@ -2,8 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-0f766e.svg)](./LICENSE)
 ![Platform: macOS 14+ Apple Silicon](https://img.shields.io/badge/platform-macOS%2014%2B%20Apple%20Silicon-111827.svg)
-[![Native Validation](https://github.com/valartts/valartts/actions/workflows/native.yml/badge.svg)](https://github.com/valartts/valartts/actions/workflows/native.yml)
-[![Security Checks](https://github.com/valartts/valartts/actions/workflows/security.yml/badge.svg)](https://github.com/valartts/valartts/actions/workflows/security.yml)
+[![Native Validation](https://github.com/jvogan/Valar/actions/workflows/native.yml/badge.svg)](https://github.com/jvogan/Valar/actions/workflows/native.yml)
+[![Security Checks](https://github.com/jvogan/Valar/actions/workflows/security.yml/badge.svg)](https://github.com/jvogan/Valar/actions/workflows/security.yml)
 
 ![Valar hero](./assets/media/hero.png)
 
