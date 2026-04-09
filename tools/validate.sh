@@ -104,8 +104,13 @@ run_speak_smoke() {
   echo "Error: expected public secret scan script at tools/public_repo_secret_scan.sh" >&2
   exit 1
 }
+[[ -f "tools/public_repo_history_scan.sh" ]] || {
+  echo "Error: expected public history scan script at tools/public_repo_history_scan.sh" >&2
+  exit 1
+}
 bash tools/public_repo_audit.sh --root "$repo_root"
 bash tools/public_repo_secret_scan.sh --root "$repo_root"
+bash tools/public_repo_history_scan.sh --root "$repo_root"
 
 build_targets=(
   "apps/ValarCLI"

@@ -3,6 +3,7 @@ import Foundation
 import NIOCore
 import NIOHTTPTypes
 import ValarCore
+import ValarPersistence
 
 actor ClientInputCloseRegistry {
     static let shared = ClientInputCloseRegistry()
@@ -159,14 +160,16 @@ enum ValarDaemonRouter {
         kind: String = "daemon_error",
         help: String? = nil
     ) -> Response {
+        let sanitizedMessage = ValarPathRedaction.sanitizeMessage(message)
+        let sanitizedHelp = help.map(ValarPathRedaction.sanitizeMessage)
         do {
             return try jsonResponse(
                 DaemonErrorEnvelopeDTO(
                     error: ValarCommandErrorDTO(
                         code: Int(status.code),
                         kind: kind,
-                        message: message,
-                        help: help
+                        message: sanitizedMessage,
+                        help: sanitizedHelp
                     )
                 ),
                 status: status

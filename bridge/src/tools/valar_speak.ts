@@ -4,13 +4,14 @@ import { readFile, writeFile } from "fs/promises";
 import { extname } from "path";
 import { resolveProfile } from "./profiles.js";
 import { validateInputPath, validateOutputPath } from "../security/paths.js";
+import { daemonUnavailableMessage, redactPath, sanitizeMessage } from "../security/redaction.js";
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
 }
 
 function err(text: string) {
-  return { content: [{ type: "text" as const, text }], isError: true };
+  return { content: [{ type: "text" as const, text: sanitizeMessage(text) }], isError: true };
 }
 
 async function encodeReferenceAudioDataURL(filePath: string): Promise<string> {
@@ -137,8 +138,8 @@ export function register(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-      } catch (e) {
-        return err(`Daemon unreachable: ${e}`);
+      } catch {
+        return err(daemonUnavailableMessage());
       }
 
       if (!res.ok) {
@@ -151,7 +152,7 @@ export function register(
         validateOutputPath(output_path);
         await writeFile(output_path, Buffer.from(buffer));
         return ok(
-          `Audio written to ${output_path} (${buffer.byteLength} bytes)`,
+          `Audio written to ${redactPath(output_path)} (${buffer.byteLength} bytes)`,
         );
       } catch (e) {
         return err(`Failed to write audio file: ${e}`);

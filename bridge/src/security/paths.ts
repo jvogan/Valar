@@ -2,6 +2,7 @@ import { resolve, join, extname, dirname, basename } from "path";
 import { statSync, lstatSync, realpathSync } from "fs";
 import { homedir } from "os";
 import { INBOX_DIR, OUTBOX_DIR } from "../storage.js";
+import { redactPath } from "./redaction.js";
 
 const AUDIO_EXTENSIONS = new Set([
   ".wav", ".mp3", ".ogg", ".opus", ".m4a", ".flac",
@@ -97,11 +98,11 @@ export function validateInputPath(p: string): void {
   try {
     size = statSync(resolved).size;
   } catch {
-    throw new Error(`Cannot stat input file: ${p}`);
+    throw new Error(`Cannot stat input file: ${redactPath(p)}`);
   }
   if (size > MAX_INPUT_BYTES) {
     throw new Error(
-      `Input file exceeds 50 MB limit (${(size / 1024 / 1024).toFixed(1)} MB). Got: ${p}`,
+      `Input file exceeds 50 MB limit (${(size / 1024 / 1024).toFixed(1)} MB). Got: ${redactPath(p)}`,
     );
   }
   const resolvedWithSlash = resolved.endsWith("/") ? resolved : resolved + "/";
@@ -123,7 +124,7 @@ export function validateOutputPath(p: string): void {
   const resolvedWithSlash = resolved.endsWith("/") ? resolved : resolved + "/";
   if (!OUTPUT_ALLOWED.some((dir) => resolvedWithSlash.startsWith(dir))) {
     throw new Error(
-      `Output path must be within an allowed directory (Desktop, Downloads, Documents, /tmp, or Valar bridge storage). Got: ${p}`,
+      `Output path must be within an allowed directory (Desktop, Downloads, Documents, /tmp, or Valar bridge storage). Got: ${redactPath(p)}`,
     );
   }
 }

@@ -12,6 +12,7 @@ import * as valarSpeak from "./src/tools/valar_speak.js";
 import * as valarTranscribe from "./src/tools/valar_transcribe.js";
 import * as valarAlign from "./src/tools/valar_align.js";
 import * as valarInstallModel from "./src/tools/valar_install_model.js";
+import { daemonUnavailableMessage, sanitizeMessage } from "./src/security/redaction.js";
 
 function requireLoopbackDaemonURL(raw: string): string {
   let parsed: URL;
@@ -62,7 +63,7 @@ function ok(text: string) {
 }
 
 function err(text: string) {
-  return { content: [{ type: "text" as const, text }], isError: true };
+  return { content: [{ type: "text" as const, text: sanitizeMessage(text) }], isError: true };
 }
 
 async function checkDaemonHealthy(): Promise<boolean> {
@@ -100,8 +101,8 @@ server.tool(
     try {
       const snapshot = await daemonGet("/capabilities");
       return ok(JSON.stringify(snapshot, null, 2));
-    } catch (e) {
-      return err(`Daemon unreachable or capabilities endpoint failed: ${e}`);
+    } catch {
+      return err(daemonUnavailableMessage());
     }
   },
 );
@@ -118,8 +119,8 @@ server.tool(
         daemonGet("/runtime").catch(() => null),
       ]);
       return ok(JSON.stringify({ health, capabilities, runtime }, null, 2));
-    } catch (e) {
-      return err(`Daemon unreachable: ${e}`);
+    } catch {
+      return err(daemonUnavailableMessage());
     }
   },
 );

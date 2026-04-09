@@ -56,8 +56,9 @@ The public repo should keep both of these checks green:
 
 - `tools/public_repo_audit.sh`
 - `tools/public_repo_secret_scan.sh`
+- `tools/public_repo_history_scan.sh`
 
-The audit catches private/operator content and workstation assumptions. The secret scan catches committed token-like material and obvious secret assignments.
+The audit catches private/operator content and workstation assumptions in the current tree. The secret scan catches committed token-like material and obvious secret assignments in the current tree. The history scan checks earlier commits before publication.
 
 ## First Public Commit
 

@@ -14,10 +14,14 @@ SHELL := /bin/bash
 	validate-bridge-live-blessed \
 	audit-public \
 	audit-and-secret-scan \
+	audit-history-public \
 	audit-secrets-public \
 	build-cli \
 	build-daemon \
-	build-metallib
+	build-metallib \
+	start-daemon \
+	test \
+	install
 
 quickstart:
 	bash ./tools/quickstart.sh
@@ -55,10 +59,15 @@ validate-bridge-live-blessed:
 audit-public:
 	bash ./tools/public_repo_audit.sh
 	bash ./tools/public_repo_secret_scan.sh
+	bash ./tools/public_repo_history_scan.sh
 
 audit-and-secret-scan:
 	bash ./tools/public_repo_audit.sh
 	bash ./tools/public_repo_secret_scan.sh
+	bash ./tools/public_repo_history_scan.sh
+
+audit-history-public:
+	bash ./tools/public_repo_history_scan.sh
 
 audit-secrets-public:
 	bash ./tools/public_repo_secret_scan.sh
@@ -71,3 +80,22 @@ build-daemon:
 
 build-metallib:
 	bash ./scripts/build_metallib.sh
+
+start-daemon:
+	swift run --package-path apps/ValarDaemon valarttsd
+
+test:
+	swift test --package-path Packages/ValarModelKit
+	swift test --package-path Packages/ValarAudio
+	swift test --package-path Packages/ValarPersistence
+	swift test --package-path Packages/ValarCore
+	swift test --package-path Packages/ValarMLX
+	swift test --package-path apps/ValarCLI
+
+install:
+	swift build --package-path apps/ValarCLI --configuration release
+	swift build --package-path apps/ValarDaemon --configuration release
+	@mkdir -p /usr/local/bin
+	cp "$$(swift build --package-path apps/ValarCLI --configuration release --show-bin-path)/valartts" /usr/local/bin/valartts
+	cp "$$(swift build --package-path apps/ValarDaemon --configuration release --show-bin-path)/valarttsd" /usr/local/bin/valarttsd
+	@echo "Installed valartts and valarttsd to /usr/local/bin (release build)"

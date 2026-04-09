@@ -11,14 +11,14 @@ public enum ProjectBundleError: Error, LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case let .invalidBundle(url):
-            return "Project bundle at '\(url.path)' is invalid."
-        case let .missingManifest(url):
-            return "Project bundle manifest is missing at '\(url.path)'."
-        case let .missingSQLiteDatabase(url):
-            return "Project bundle database is missing at '\(url.path)'."
-        case let .missingProjectRecord(url):
-            return "Project bundle database at '\(url.path)' does not contain a project record."
+        case .invalidBundle:
+            return "Project bundle is invalid."
+        case .missingManifest:
+            return "Project bundle manifest is missing."
+        case .missingSQLiteDatabase:
+            return "Project bundle database is missing."
+        case .missingProjectRecord:
+            return "Project bundle database does not contain a project record."
         case let .projectNotFound(projectID):
             return "Project \(projectID.uuidString) was not found."
         case let .projectMismatch(expected, actual):

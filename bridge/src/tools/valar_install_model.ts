@@ -1,12 +1,13 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { daemonUnavailableMessage, sanitizeMessage } from "../security/redaction.js";
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
 }
 
 function err(text: string) {
-  return { content: [{ type: "text" as const, text }], isError: true };
+  return { content: [{ type: "text" as const, text: sanitizeMessage(text) }], isError: true };
 }
 
 export function register(
@@ -49,8 +50,8 @@ export function register(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
-      } catch (e) {
-        return err(`Daemon unreachable: ${e}`);
+      } catch {
+        return err(daemonUnavailableMessage());
       }
 
       if (res.status === 409) {

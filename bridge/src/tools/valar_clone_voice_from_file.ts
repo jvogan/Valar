@@ -3,13 +3,14 @@ import { z } from "zod";
 import { readFile } from "fs/promises";
 import { basename } from "path";
 import { validateInputPath } from "../security/paths.js";
+import { daemonUnavailableMessage, sanitizeMessage } from "../security/redaction.js";
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
 }
 
 function err(text: string) {
-  return { content: [{ type: "text" as const, text }], isError: true };
+  return { content: [{ type: "text" as const, text: sanitizeMessage(text) }], isError: true };
 }
 
 export function register(
@@ -67,8 +68,8 @@ export function register(
           method: "POST",
           body: form,
         });
-      } catch (e) {
-        return err(`Daemon unreachable: ${e}`);
+      } catch {
+        return err(daemonUnavailableMessage());
       }
 
       if (!res.ok) {

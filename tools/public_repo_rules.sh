@@ -52,6 +52,10 @@ valar_public_repo_path_block_regexes() {
 (^|/)tools/private_.*\.sh$
 (^|/)tools/golden_corpus\.sh$
 (^|/)tools/sync_public_repo\.sh$
+(^|/)\.valartts-public-home(/|$)
+(^|/)\.valartts-home(/|$)
+(^|/)[^/]+\.valarproject(/|$)
+(^|/)valar\.db$
 EOF
 }
 

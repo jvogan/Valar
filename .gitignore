@@ -98,3 +98,10 @@ artifacts/repo-health/
 agent-scratch/
 worklogs/
 rewrite-notes/
+.valartts-public-home/
+.valartts-home/
+*.valarproject/
+valar.db
+
+# Banner generation artifacts (not for commit)
+assets/banner-candidates/

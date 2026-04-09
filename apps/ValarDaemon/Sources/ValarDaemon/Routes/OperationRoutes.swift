@@ -73,7 +73,7 @@ extension ValarDaemonRouter {
                     help: help(for: error)
                 )
             } catch {
-                return modelErrorResponse(error.localizedDescription, status: .internalServerError)
+                return modelErrorResponse("Model installation failed due to an internal daemon error.", status: .internalServerError)
             }
         }
 
@@ -101,7 +101,7 @@ extension ValarDaemonRouter {
                     help: help(for: error)
                 )
             } catch {
-                return modelErrorResponse(error.localizedDescription, status: .internalServerError)
+                return modelErrorResponse("Model removal failed due to an internal daemon error.", status: .internalServerError)
             }
         }
 
@@ -129,7 +129,7 @@ extension ValarDaemonRouter {
                     help: help(for: error)
                 )
             } catch {
-                return modelErrorResponse(error.localizedDescription, status: .internalServerError)
+                return modelErrorResponse("Model cache purge failed due to an internal daemon error.", status: .internalServerError)
             }
         }
     }

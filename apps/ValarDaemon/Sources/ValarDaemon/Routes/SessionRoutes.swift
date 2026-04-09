@@ -148,7 +148,7 @@ extension ValarDaemonRouter {
             return routeError.httpStatus
         case let httpError as HTTPError:
             return httpError.status
-        case is DecodingError, is ValarPathValidationError:
+        case is DecodingError, is ValarPathValidationError, is ProjectBundleError:
             return .badRequest
         default:
             return .internalServerError
@@ -161,10 +161,14 @@ extension ValarDaemonRouter {
             return routeError.localizedDescription
         case let httpError as HTTPError:
             return httpError.body ?? httpError.localizedDescription
+        case let bundleError as ProjectBundleError:
+            return bundleError.localizedDescription
+        case let validationError as ValarPathValidationError:
+            return validationError.localizedDescription
         case is DecodingError:
             return "Invalid JSON request body."
         default:
-            return error.localizedDescription
+            return "Session request failed due to an internal daemon error."
         }
     }
 }
@@ -181,7 +185,7 @@ private extension SessionManager {
         do {
             return try entry(for: sessionID)
         } catch {
-            throw SessionRouteError.sessionNotFound(error.localizedDescription)
+            throw SessionRouteError.sessionNotFound("Session '\(sessionID.uuidString)' not found.")
         }
     }
 }

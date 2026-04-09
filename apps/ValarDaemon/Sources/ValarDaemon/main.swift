@@ -9,13 +9,12 @@ import Darwin
 
 private let daemonBindHostEnvVar = "VALARTTSD_BIND_HOST"
 private let daemonBindPortEnvVar = "VALARTTSD_BIND_PORT"
-private let allowNonLocalBindEnvVar = "VALARTTS_ALLOW_NONLOCAL_BIND"
 
 private func daemonBindHost(environment: [String: String]) throws -> String {
     let host = environment[daemonBindHostEnvVar]?.trimmingCharacters(in: .whitespacesAndNewlines)
     let resolved = (host?.isEmpty == false ? host! : "127.0.0.1")
-    guard isLoopbackHost(resolved) || CatalogVisibilityPolicy.parseBooleanFlag(environment[allowNonLocalBindEnvVar] ?? "") else {
-        throw RuntimeError("Non-loopback daemon bind requires \(allowNonLocalBindEnvVar)=1. Refusing to bind to \(resolved).")
+    guard isLoopbackHost(resolved) else {
+        throw RuntimeError("The public daemon only supports loopback binds. Refusing to bind to \(resolved).")
     }
     return resolved
 }
@@ -65,7 +64,7 @@ private func printStartupMaintenance(
     if !report.modelPackState.orphanedModelPackPaths.isEmpty {
         print("Found orphaned ModelPacks not registered in the install ledger:")
         for path in report.modelPackState.orphanedModelPackPaths.sorted() {
-            print("  - \(path)")
+            print("  - \(ValarPathRedaction.redact(path))")
         }
         print("Preview cleanup with: valartts models cleanup --dry-run")
         print("Apply cleanup with:   valartts models cleanup --apply")

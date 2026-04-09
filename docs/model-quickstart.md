@@ -42,6 +42,8 @@ If you also use another local Valar checkout on the same Mac, isolate this repo 
 export VALARTTS_HOME="$PWD/.valartts-public-home"
 ```
 
+That repo-local state directory is gitignored in this public repo.
+
 ## Common Readiness Check
 
 ```bash

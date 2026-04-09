@@ -488,6 +488,23 @@ final class ValarPersistenceTests: XCTestCase {
         XCTAssertEqual(paths.databaseURL.path, "\(override)/valar.db")
     }
 
+    func testValarPathRedactionSanitizesEmbeddedPathsAndFileURLs() {
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        let homeFileURL = URL(fileURLWithPath: home)
+            .appendingPathComponent("Library", isDirectory: true)
+            .appendingPathComponent("voice.wav", isDirectory: false)
+            .absoluteString
+        let message = "Failed to open \(home)/Secrets/voice.wav from /Volumes/External/audio.wav via \(homeFileURL)"
+
+        let sanitized = ValarPathRedaction.sanitizeMessage(message)
+
+        XCTAssertFalse(sanitized.contains(home))
+        XCTAssertFalse(sanitized.contains("/Volumes/External"))
+        XCTAssertTrue(sanitized.contains("~/Secrets/voice.wav"))
+        XCTAssertTrue(sanitized.contains("/Volumes/<volume>/audio.wav"))
+        XCTAssertTrue(sanitized.contains("file://~/Library/voice.wav"))
+    }
+
     func testValidateContainmentRejectsSymlinkEscape() throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

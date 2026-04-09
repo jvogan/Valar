@@ -205,7 +205,7 @@ public extension ValarRuntime {
         let processFootprintOverBudgetBytes = max(0, resourceSnapshot.processFootprintBytes - runtimeConfiguration.maxResidentBytes)
         return DaemonRuntimeStatusDTO(
             processIdentifier: Int(ProcessInfo.processInfo.processIdentifier),
-            daemonPIDFilePath: pidFileURL.path,
+            daemonPIDFilePath: ValarPathRedaction.redact(pidFileURL),
             daemonPIDFilePresent: pidFilePresent,
             daemonPIDFileMatchesProcess: pidFileMatchesProcess,
             residentModels: resident.map {
@@ -230,7 +230,7 @@ public extension ValarRuntime {
             warmStartModelSource: warmStartModelSource,
             configuredWarmStartModels: configuredWarmStartModels,
             effectiveWarmStartModels: warmResidency.effectiveWarmStartModels,
-            orphanedModelPackPaths: startupMaintenance.modelPackState.orphanedModelPackPaths,
+            orphanedModelPackPaths: startupMaintenance.modelPackState.orphanedModelPackPaths.map(ValarPathRedaction.redact),
             idleResidentExtraModels: warmResidency.idleResidentExtraModels,
             idleTrimEligibleModels: warmResidency.idleTrimEligibleModels,
             idleResidentExtraModelsLikelyDrift: warmResidency.observation.likelyDrift,

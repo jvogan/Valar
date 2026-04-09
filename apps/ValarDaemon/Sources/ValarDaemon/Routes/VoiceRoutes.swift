@@ -36,6 +36,9 @@ private actor VoiceMutationRateLimiter {
 
 extension ValarDaemonRouter {
     private static let mutationRateLimiter = VoiceMutationRateLimiter()
+    private static let invalidJSONBodyMessage = "Invalid JSON request body."
+    private static let internalVoiceErrorMessage = "Voice request failed due to an internal daemon error."
+    private static let invalidRequestBodyMessage = "Failed to read request body."
 
     // MARK: - Route registration
 
@@ -107,7 +110,7 @@ extension ValarDaemonRouter {
             body = try JSONDecoder().decode(CreateBody.self, from: data)
         } catch {
             return voiceErrorResponse(
-                "Invalid JSON body: \(error.localizedDescription)",
+                invalidJSONBodyMessage,
                 status: .badRequest
             )
         }
@@ -125,7 +128,7 @@ extension ValarDaemonRouter {
         } catch let error as ValarVoiceError {
             return voiceErrorResponse(error.localizedDescription, status: .badRequest)
         } catch {
-            return voiceErrorResponse(error.localizedDescription, status: .internalServerError)
+            return voiceErrorResponse(internalVoiceErrorMessage, status: .internalServerError)
         }
 
         let dto = VoiceSummaryDTO(from: voice, preview: voice.backendVoiceID ?? voice.voicePrompt ?? voice.label)
@@ -159,7 +162,7 @@ extension ValarDaemonRouter {
             body = try JSONDecoder().decode(DesignBody.self, from: data)
         } catch {
             return voiceErrorResponse(
-                "Invalid JSON body: \(error.localizedDescription)",
+                invalidJSONBodyMessage,
                 status: .badRequest
             )
         }
@@ -183,7 +186,7 @@ extension ValarDaemonRouter {
         } catch let error as ValarVoiceError {
             return voiceErrorResponse(error.localizedDescription, status: .badRequest)
         } catch {
-            return voiceErrorResponse(error.localizedDescription, status: .internalServerError)
+            return voiceErrorResponse(internalVoiceErrorMessage, status: .internalServerError)
         }
 
         let dto = VoiceSummaryDTO(from: voice, preview: voice.backendVoiceID ?? voice.voicePrompt ?? voice.label)
@@ -211,7 +214,7 @@ extension ValarDaemonRouter {
             body = Data(buffer: buffer)
         } catch {
             return voiceErrorResponse(
-                "Failed to read request body: \(error.localizedDescription)",
+                invalidRequestBodyMessage,
                 status: .badRequest
             )
         }
@@ -259,7 +262,7 @@ extension ValarDaemonRouter {
         } catch let error as ValarVoiceError {
             return voiceErrorResponse(error.localizedDescription, status: .badRequest)
         } catch {
-            return voiceErrorResponse(error.localizedDescription, status: .internalServerError)
+            return voiceErrorResponse(internalVoiceErrorMessage, status: .internalServerError)
         }
 
         let dto = VoiceSummaryDTO(from: voice, preview: voice.backendVoiceID ?? voice.voicePrompt ?? voice.label)
@@ -300,7 +303,7 @@ extension ValarDaemonRouter {
             body = try JSONDecoder().decode(StabilizeBody.self, from: data)
         } catch {
             return voiceErrorResponse(
-                "Invalid JSON body: \(error.localizedDescription)",
+                invalidJSONBodyMessage,
                 status: .badRequest
             )
         }
@@ -337,7 +340,7 @@ extension ValarDaemonRouter {
             }
             return voiceErrorResponse(error.localizedDescription, status: status)
         } catch {
-            return voiceErrorResponse(error.localizedDescription, status: .internalServerError)
+            return voiceErrorResponse(internalVoiceErrorMessage, status: .internalServerError)
         }
 
         let dto = VoiceSummaryDTO(from: voice, preview: voice.backendVoiceID ?? voice.voicePrompt ?? voice.label)
@@ -378,7 +381,7 @@ extension ValarDaemonRouter {
             }
             return voiceErrorResponse(error.localizedDescription, status: status)
         } catch {
-            return voiceErrorResponse(error.localizedDescription, status: .internalServerError)
+            return voiceErrorResponse(internalVoiceErrorMessage, status: .internalServerError)
         }
     }
 

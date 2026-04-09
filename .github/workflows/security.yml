@@ -18,7 +18,9 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
 
       - name: Install scan helpers
         run: sudo apt-get update && sudo apt-get install -y ripgrep
@@ -28,3 +30,6 @@ jobs:
 
       - name: Run tracked-file secret scan
         run: bash ./tools/public_repo_secret_scan.sh --root .
+
+      - name: Run git-history scan
+        run: bash ./tools/public_repo_history_scan.sh --root .

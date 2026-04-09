@@ -1207,15 +1207,15 @@ final class GRDBStoreCoverageTests: XCTestCase {
         )
         XCTAssertEqual(
             ValarPathValidationError.absolutePathNotAllowed(label: "voice", value: "/tmp/file.wav").errorDescription,
-            "voice must stay relative, got '/tmp/file.wav'"
+            "voice must stay relative"
         )
         XCTAssertEqual(
             ValarPathValidationError.pathTraversalDetected(label: "model", value: "../secret").errorDescription,
-            "model contains path traversal components: '../secret'"
+            "model contains path traversal components"
         )
         XCTAssertEqual(
             ValarPathValidationError.pathEscapesContainment(path: "/tmp/out", allowedDirectory: "/tmp/in").errorDescription,
-            "Resolved path '/tmp/out' escapes allowed directory '/tmp/in'"
+            "Resolved path escapes the allowed directory"
         )
 
         XCTAssertThrowsError(try ValarAppPaths.validateRelativePath("   ", label: "title")) { error in

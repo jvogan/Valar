@@ -1,9 +1,9 @@
 # Valar
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-0f766e.svg)](./LICENSE)
-![Platform: macOS Apple Silicon](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-111827.svg)
-![Native Validation](https://img.shields.io/badge/native%20validation-macOS%2015-1d4ed8.svg)
-![Security Checks](https://img.shields.io/badge/security-audit%20%2B%20secrets-7c3aed.svg)
+![Platform: macOS 14+ Apple Silicon](https://img.shields.io/badge/platform-macOS%2014%2B%20Apple%20Silicon-111827.svg)
+[![Native Validation](https://github.com/valartts/valartts/actions/workflows/native.yml/badge.svg)](https://github.com/valartts/valartts/actions/workflows/native.yml)
+[![Security Checks](https://github.com/valartts/valartts/actions/workflows/security.yml/badge.svg)](https://github.com/valartts/valartts/actions/workflows/security.yml)
 
 ![Valar hero](./assets/media/hero.png)
 
@@ -42,6 +42,8 @@ If you already use another Valar checkout on the same Mac, isolate this repo whi
 export VALARTTS_HOME="$PWD/.valartts-public-home"
 ```
 
+That repo-local state directory is gitignored in this public repo.
+
 ## What Works Today
 
 | Goal | Start with | Why |
@@ -70,6 +72,19 @@ The bridge is optional. Bun is only required if you want MCP or advanced automat
   <img alt="Valar CLI and MCP preview" src="./assets/media/cli-mcp-preview.png" width="49%" />
   <img alt="Valar app preview" src="./assets/media/app-preview.png" width="49%" />
 </p>
+
+## Performance
+
+Benchmarked on Apple Silicon with warm model cache:
+
+| Model | First Audio | Real-Time Factor | Footprint |
+|---|---|---|---|
+| Soprano | Instant | < 1.0x | ~285 MB |
+| Qwen Base | < 1 s | < 1.5x | ~1.0-4.2 GB |
+| VibeVoice | < 500 ms | < 1.5x | ~700 MB |
+| Voxtral | < 1 s | < 1.5x | ~2.4 GB |
+
+First Audio = time to first audio byte (warm start). Real-Time Factor = synthesis time / audio duration (lower is faster). See [tests/vibevoice_corpus/README.md](./tests/vibevoice_corpus/README.md) for detailed benchmark targets and methodology.
 
 ## App Source
 

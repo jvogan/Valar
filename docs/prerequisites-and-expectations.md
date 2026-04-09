@@ -4,11 +4,11 @@ This page answers the practical public-repo question first: what do you need on 
 
 ## Supported Machine Profile
 
-Valar is a local speech stack for macOS on Apple Silicon.
+Valar is a local speech stack for macOS on Apple Silicon. It requires **macOS 14 (Sonoma) or later** and is validated on macOS 15 (Sequoia).
 
 Public newcomer assumptions:
 
-- macOS on Apple Silicon
+- macOS 14+ on Apple Silicon (M1 or later)
 - Xcode command-line tools installed
 - the full Metal toolchain available so `mlx.metallib` can be built for local inference
 - `jq` and `ripgrep` available for validation helpers
@@ -44,6 +44,8 @@ If you already use another local Valar checkout on the same Mac, isolate this re
 ```bash
 export VALARTTS_HOME="$PWD/.valartts-public-home"
 ```
+
+That repo-local state directory is gitignored in this public repo.
 
 ## What Works Today
 

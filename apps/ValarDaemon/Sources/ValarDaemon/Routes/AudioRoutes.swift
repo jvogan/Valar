@@ -13,6 +13,7 @@ private let maxMultipartBodyBytes = 15_000_000
 private let maxSpeechRequestBodyBytes = 15_000_000
 private let validOpusRates: Set<Double> = [8_000, 12_000, 16_000, 24_000, 48_000]
 private let voxtralPresetVoiceIDs = Set(VoxtralCatalog.presetVoices.map(\.name))
+private let internalAudioErrorMessage = "Audio request failed due to an internal daemon error."
 
 extension ValarDaemonRouter {
     static func registerAudioRoutes(
@@ -193,7 +194,7 @@ extension ValarDaemonRouter {
             )
         } catch {
             return errorResponse(
-                "Failed to prepare model '\(descriptor.id.rawValue)': \(error.localizedDescription)",
+                internalAudioErrorMessage,
                 status: .internalServerError
             )
         }
@@ -266,10 +267,11 @@ extension ValarDaemonRouter {
                     terminalState: .completed
                 )
             } catch let error as WorkflowReservationError {
+                let publicMessage = publicAudioMessage(for: error, status: .internalServerError)
                 await runtime.activeSynthesisTracker.finish(
                     requestID: requestID,
                     terminalState: .failed,
-                    message: error.localizedDescription
+                    message: publicMessage
                 )
                 if case .unsupportedTextToSpeech = error {
                     return errorResponse(
@@ -277,14 +279,15 @@ extension ValarDaemonRouter {
                         status: .badRequest
                     )
                 }
-                return errorResponse(error.localizedDescription, status: .internalServerError)
+                return errorResponse(publicMessage, status: .internalServerError)
             } catch {
+                let publicMessage = publicAudioMessage(for: error, status: .internalServerError)
                 await runtime.activeSynthesisTracker.finish(
                     requestID: requestID,
                     terminalState: Self.synthesisTerminalState(for: error),
-                    message: error.localizedDescription
+                    message: publicMessage
                 )
-                return errorResponse(error.localizedDescription, status: .internalServerError)
+                return errorResponse(publicMessage, status: .internalServerError)
             }
 
             var body = ByteBuffer()
@@ -423,7 +426,7 @@ extension ValarDaemonRouter {
             )
         } catch {
             return errorResponse(
-                error.localizedDescription,
+                internalAudioErrorMessage,
                 status: .internalServerError
             )
         }
@@ -517,7 +520,7 @@ extension ValarDaemonRouter {
             )
         } catch {
             return errorResponse(
-                error.localizedDescription,
+                internalAudioErrorMessage,
                 status: .internalServerError
             )
         }
@@ -1111,14 +1114,30 @@ extension ValarDaemonRouter {
         daemonErrorResponse(message: message, status: status, kind: "audio_error")
     }
 
+    private static func errorResponse(
+        _ error: Error,
+        status: HTTPResponse.Status
+    ) -> Response {
+        daemonErrorResponse(
+            message: publicAudioMessage(for: error, status: status),
+            status: status,
+            kind: (error as? DaemonRequestError)?.errorKind ?? "audio_error"
+        )
+    }
+
     private static func errorResponse(_ error: Error) -> Response {
         let status = status(for: error)
-        let kind = (error as? DaemonRequestError)?.errorKind ?? "audio_error"
-        return daemonErrorResponse(
-            message: error.localizedDescription,
-            status: status,
-            kind: kind
-        )
+        return errorResponse(error, status: status)
+    }
+
+    private static func publicAudioMessage(
+        for error: Error,
+        status: HTTPResponse.Status
+    ) -> String {
+        if status == .internalServerError {
+            return internalAudioErrorMessage
+        }
+        return ValarPathRedaction.sanitizeMessage(error.localizedDescription)
     }
 
     private static func audioResponseHeaders(
@@ -1162,10 +1181,14 @@ extension ValarDaemonRouter {
     }
 
     private static func status(for error: Error) -> HTTPResponse.Status {
-        guard let requestError = error as? DaemonRequestError else {
+        switch error {
+        case let requestError as DaemonRequestError:
+            return requestError.httpStatus
+        case is ValarRuntime.TranscriptionError, is ValarRuntime.AlignmentError, is TranscriptionStreamError:
             return .badRequest
+        default:
+            return .internalServerError
         }
-        return requestError.httpStatus
     }
 
     private static func trimmedOrNil(_ value: String?) -> String? {
@@ -1213,7 +1236,7 @@ extension ValarDaemonRouter {
         } catch is DecodingError {
             return errorResponse("Invalid JSON request body.", status: .badRequest)
         } catch {
-            return errorResponse(error.localizedDescription, status: .badRequest)
+            return errorResponse(error, status: .badRequest)
         }
 
         let input = payload.input.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -1329,7 +1352,7 @@ extension ValarDaemonRouter {
             let savedPromptPayload = try await referencePromptPayload(for: voiceRecord, runtime: runtime)
             promptPayload = inlineReferencePayload ?? savedPromptPayload
         } catch {
-            return errorResponse(error.localizedDescription, status: .internalServerError)
+            return errorResponse(internalAudioErrorMessage, status: .internalServerError)
         }
 
         let configuration: ModelRuntimeConfiguration
@@ -1342,7 +1365,7 @@ extension ValarDaemonRouter {
             )
         } catch {
             return errorResponse(
-                "Failed to prepare model '\(descriptor.id.rawValue)': \(error.localizedDescription)",
+                internalAudioErrorMessage,
                 status: .internalServerError
             )
         }
@@ -1440,7 +1463,11 @@ extension ValarDaemonRouter {
                         payload: try encoder.encode(completeEvent)
                     ))
                 } catch {
-                    let msg = error.localizedDescription
+                    let publicMessage = publicAudioMessage(
+                        for: error,
+                        status: status(for: error)
+                    )
+                    let msg = publicMessage
                         .replacingOccurrences(of: "\\", with: "\\\\")
                         .replacingOccurrences(of: "\r", with: "\\r")
                         .replacingOccurrences(of: "\n", with: "\\n")
@@ -1449,7 +1476,7 @@ extension ValarDaemonRouter {
                     errBuf.writeString("event: error\ndata: {\"message\":\"\(msg)\"}\n\n")
                     try? await writer.write(errBuf)
                     terminalState = Self.synthesisTerminalState(for: error)
-                    terminalMessage = error.localizedDescription
+                    terminalMessage = publicMessage
                 }
 
                 await runtime.activeSynthesisTracker.finish(
@@ -1518,7 +1545,7 @@ extension ValarDaemonRouter {
                 runtime: runtime
             )
         } catch {
-            return errorResponse(error.localizedDescription, status: status(for: error))
+            return errorResponse(error)
         }
 
         let audioChunk: AudioChunk
@@ -1530,7 +1557,7 @@ extension ValarDaemonRouter {
                 runtime: runtime
             )
         } catch {
-            return errorResponse(error.localizedDescription, status: .badRequest)
+            return errorResponse(error, status: .badRequest)
         }
 
         // Build streaming SSE response. All transcription work happens inside
@@ -1707,7 +1734,10 @@ extension ValarDaemonRouter {
                     }
                 }
             } catch {
-                let msg = error.localizedDescription
+                let msg = publicAudioMessage(
+                    for: error,
+                    status: status(for: error)
+                )
                     .replacingOccurrences(of: "\\", with: "\\\\")
                     .replacingOccurrences(of: "\r", with: "\\r")
                     .replacingOccurrences(of: "\n", with: "\\n")

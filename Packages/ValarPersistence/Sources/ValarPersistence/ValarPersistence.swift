@@ -12,12 +12,12 @@ public enum ValarPathValidationError: Error, LocalizedError, Equatable {
         switch self {
         case let .emptyPathValue(label):
             return "\(label) must not be empty"
-        case let .absolutePathNotAllowed(label, value):
-            return "\(label) must stay relative, got '\(value)'"
-        case let .pathTraversalDetected(label, value):
-            return "\(label) contains path traversal components: '\(value)'"
-        case let .pathEscapesContainment(path, allowedDirectory):
-            return "Resolved path '\(path)' escapes allowed directory '\(allowedDirectory)'"
+        case let .absolutePathNotAllowed(label, _):
+            return "\(label) must stay relative"
+        case let .pathTraversalDetected(label, _):
+            return "\(label) contains path traversal components"
+        case .pathEscapesContainment:
+            return "Resolved path escapes the allowed directory"
         case .applicationSupportDirectoryUnavailable:
             return "Application Support directory is unavailable; cannot safely determine storage location"
         }

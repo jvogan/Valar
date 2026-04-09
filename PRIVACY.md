@@ -27,7 +27,7 @@ If you use the MCP bridge in `bridge/`, you may choose to read or write local me
 
 The normal workflow uses the network only for model downloads from upstream hosts such as Hugging Face. Valar does not require a cloud inference backend.
 
-The daemon defaults to `127.0.0.1:8787` and is not network-accessible unless you explicitly opt into a non-loopback bind.
+The public daemon binds to `127.0.0.1:8787` only. It is loopback-only in this repo and is not intended to be exposed as a network service.
 
 ## Model Licenses
 
