@@ -128,12 +128,24 @@ enum VoiceCloneFileValidator {
     /// Validates a file URL at selection time (extension + readability + size).
     /// Call this from the UI layer when the user picks or drops a file.
     static func validateFileSelection(_ url: URL) throws {
+        guard url.isFileURL else {
+            throw VoiceCloneError.unreadableFile
+        }
+
+        let startedSecurityScope = url.startAccessingSecurityScopedResource()
+        defer {
+            if startedSecurityScope {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
         let fileExtension = url.pathExtension.lowercased()
         guard allowedExtensions.contains(fileExtension) else {
             throw VoiceCloneError.unsupportedFileType(fileExtension)
         }
 
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
+              (attributes[.type] as? FileAttributeType) != .typeDirectory,
               let fileSize = attributes[.size] as? Int else {
             throw VoiceCloneError.unreadableFile
         }

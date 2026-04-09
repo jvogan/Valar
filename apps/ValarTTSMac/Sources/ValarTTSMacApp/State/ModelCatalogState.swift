@@ -148,7 +148,7 @@ final class ModelCatalogState {
             installErrors[model.id] = nil
         } catch {
             downloads[model.id] = nil
-            installErrors[model.id] = error.localizedDescription
+            installErrors[model.id] = PathRedaction.redactMessage(error.localizedDescription)
         }
         await loadCatalog()
         await onCatalogMutation?()
@@ -162,7 +162,7 @@ final class ModelCatalogState {
             await onCatalogMutation?()
         } catch {
             Self.logger.error("Failed to uninstall model \(model.id.rawValue, privacy: .public): \(error.localizedDescription, privacy: .private)")
-            installErrors[model.id] = error.localizedDescription
+            installErrors[model.id] = PathRedaction.redactMessage(error.localizedDescription)
         }
     }
 

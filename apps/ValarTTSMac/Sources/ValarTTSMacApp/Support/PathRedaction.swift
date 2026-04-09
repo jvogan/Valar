@@ -24,6 +24,17 @@ enum PathRedaction {
         return "file://" + redactedPath
     }
 
+    /// Redact home-directory paths that appear inside a longer message.
+    static func redactMessage(_ message: String) -> String {
+        guard !homeDirectory.isEmpty, !message.isEmpty else {
+            return message
+        }
+
+        return message
+            .replacingOccurrences(of: "file://\(homeDirectory)", with: "file://~")
+            .replacingOccurrences(of: homeDirectory, with: "~")
+    }
+
     /// Expand a leading `~` back to the real home directory (for round-trip editing).
     static func expand(_ path: String) -> String {
         guard path.hasPrefix("~") else { return path }

@@ -96,7 +96,7 @@ struct VoiceLibraryView: View {
             do {
                 try VoiceCloneFileValidator.validateFileSelection(droppedFile)
             } catch {
-                state.errorMessage = error.localizedDescription
+                state.errorMessage = PathRedaction.redactMessage(error.localizedDescription)
                 return false
             }
 

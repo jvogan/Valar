@@ -219,7 +219,7 @@ final class AppState {
             let exportedNames = result.files.map(\.lastPathComponent).joined(separator: ", ")
             statusMessage = "Exported \(result.exportedChapterCount) chapter(s): \(exportedNames)"
         } catch {
-            exportErrorMessage = "Export failed: \(error.localizedDescription)"
+            exportErrorMessage = "Export failed: \(PathRedaction.redactMessage(error.localizedDescription))"
         }
     }
 
@@ -319,7 +319,9 @@ final class AppState {
     }
 
     private func presentImportError(_ error: any Error) {
-        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        let message = PathRedaction.redactMessage(
+            (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        )
         importErrorMessage = message
         statusMessage = "Model import failed: \(message)"
     }

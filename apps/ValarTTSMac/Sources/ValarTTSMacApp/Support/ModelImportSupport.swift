@@ -23,14 +23,14 @@ enum ModelImportError: LocalizedError, Equatable {
         switch self {
         case .unsupportedBundleExtension(let fileName):
             return "“\(fileName)” is not a .valarmodel bundle."
-        case .bundleNotFound(let path):
-            return "The selected bundle could not be found at \(path)."
+        case .bundleNotFound(let fileName):
+            return "The selected bundle “\(fileName)” could not be found."
         case .bundleMustBeDirectory(let fileName):
             return "“\(fileName)” is not a valid .valarmodel bundle directory."
         case .missingManifest:
             return "The selected bundle is missing manifest.json."
         case .invalidManifest(let message):
-            return "manifest.json is invalid: \(message)"
+            return "manifest.json is invalid: \(PathRedaction.redactMessage(message))"
         case .validationFailed(let messages):
             return messages.joined(separator: "\n")
         case .missingWeightArtifacts:
@@ -138,7 +138,7 @@ struct ModelBundleImporter {
             throw ModelImportError.unsupportedBundleExtension(bundleURL.lastPathComponent)
         }
         guard fileManager.fileExists(atPath: bundleURL.path) else {
-            throw ModelImportError.bundleNotFound(bundleURL.path)
+            throw ModelImportError.bundleNotFound(bundleURL.lastPathComponent)
         }
         guard isDirectory(bundleURL) else {
             throw ModelImportError.bundleMustBeDirectory(bundleURL.lastPathComponent)

@@ -60,7 +60,7 @@ final class VoiceDesignState {
             previewStatus = "Preview ready. Listen, revise the description, or save it."
         } catch {
             hasPreview = false
-            previewStatus = "Preview failed: \(error.localizedDescription)"
+            previewStatus = "Preview failed: \(PathRedaction.redactMessage(error.localizedDescription))"
         }
     }
 

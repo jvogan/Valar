@@ -674,6 +674,24 @@ struct RuntimeModelPickerOption: Identifiable, Equatable {
     let supportTier: ModelSupportTier
     let distributionTier: ModelDistributionTier
 
+    init(
+        id: ModelIdentifier,
+        displayName: String,
+        familyID: ModelFamilyID,
+        voiceFeatures: [ModelVoiceFeature],
+        isRecommended: Bool,
+        supportTier: ModelSupportTier = .supported,
+        distributionTier: ModelDistributionTier = .optionalInstall
+    ) {
+        self.id = id
+        self.displayName = displayName
+        self.familyID = familyID
+        self.voiceFeatures = voiceFeatures
+        self.isRecommended = isRecommended
+        self.supportTier = supportTier
+        self.distributionTier = distributionTier
+    }
+
     var supportsReferenceAudio: Bool {
         ModelVoiceSupport(features: voiceFeatures).supportsReferenceAudio
     }
@@ -789,7 +807,7 @@ extension ValarRuntime {
     func generationModelOptions() async -> [RuntimeModelPickerOption] {
         _ = await ensureStartupMaintenance()
         let catalogModels = (try? await modelCatalog.supportedModels()) ?? []
-        return catalogModels
+        let catalogOptions = catalogModels
             .filter { $0.installState == .installed }
             .filter { $0.descriptor.capabilities.contains(.speechSynthesis) }
             .map { model in
@@ -804,12 +822,31 @@ extension ValarRuntime {
                     distributionTier: model.distributionTier
                 )
             }
-            .sorted { lhs, rhs in
-                if lhs.selectionPriority != rhs.selectionPriority {
-                    return lhs.selectionPriority < rhs.selectionPriority
-                }
-                return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+
+        var optionsByID = Dictionary(uniqueKeysWithValues: catalogOptions.map { ($0.id, $0) })
+        let runtimeSnapshots = await modelRegistry.snapshots()
+        for snapshot in runtimeSnapshots where snapshot.descriptor.capabilities.contains(.speechSynthesis) {
+            guard optionsByID[snapshot.descriptor.id] == nil else {
+                continue
             }
+
+            let descriptor = snapshot.descriptor
+            let voiceSupport = descriptor.voiceSupport
+            optionsByID[descriptor.id] = RuntimeModelPickerOption(
+                id: descriptor.id,
+                displayName: descriptor.displayName,
+                familyID: descriptor.familyID,
+                voiceFeatures: voiceSupport.features,
+                isRecommended: false
+            )
+        }
+
+        return optionsByID.values.sorted { lhs, rhs in
+            if lhs.selectionPriority != rhs.selectionPriority {
+                return lhs.selectionPriority < rhs.selectionPriority
+            }
+            return lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
+        }
     }
 
     func storedVoices() async -> [VoiceLibraryRecord] {
@@ -1624,7 +1661,9 @@ final class ValarServiceHub {
         audioURL: URL,
         transcript: String?
     ) async throws -> (pcmData: Data, sampleRate: Double, transcript: String?) {
-        let assetData = try Data(contentsOf: audioURL)
+        try VoiceCloneFileValidator.validateFileSelection(audioURL)
+        let assetData = try readSecurityScopedData(at: audioURL)
+        try VoiceCloneFileValidator.validateFileHeader(assetData, hint: audioURL.pathExtension)
         let buffer = try await audioPipeline.decode(assetData, hint: audioURL.pathExtension)
         let monoSamples = buffer.channels.first ?? []
         let trimmedTranscript = transcript?.trimmingCharacters(in: .whitespacesAndNewlines)

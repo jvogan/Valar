@@ -70,7 +70,7 @@ struct VoiceAuditionView: View {
             try await appState.services.audioPlayer.play(buffer)
             statusText = "Preview ready."
         } catch {
-            statusText = "Preview failed: \(error.localizedDescription)"
+            statusText = "Preview failed: \(PathRedaction.redactMessage(error.localizedDescription))"
         }
     }
 }

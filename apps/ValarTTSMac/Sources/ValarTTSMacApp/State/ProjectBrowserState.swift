@@ -31,7 +31,7 @@ final class ProjectBrowserState {
             selectedProjectID = resolvedSelectedProjectID(in: loadedProjects)
             loadError = nil
         } catch {
-            loadError = error.localizedDescription
+            loadError = PathRedaction.redactMessage(error.localizedDescription)
             projects = []
             selectedProjectID = nil
         }
@@ -57,7 +57,7 @@ final class ProjectBrowserState {
             try await services.deleteProject(id)
             loadError = nil
         } catch {
-            loadError = error.localizedDescription
+            loadError = PathRedaction.redactMessage(error.localizedDescription)
             return
         }
 

@@ -273,7 +273,7 @@ final class SettingsState {
             refreshCacheSize()
             statusMessage = "Cleared cached data."
         } catch {
-            statusMessage = "Failed to clear cache: \(error.localizedDescription)"
+            statusMessage = "Failed to clear cache: \(PathRedaction.redactMessage(error.localizedDescription))"
         }
     }
 

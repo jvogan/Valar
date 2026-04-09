@@ -524,7 +524,7 @@ final class ProjectWorkspaceState {
     func ingestScriptFile(_ url: URL, delimiter: String = "---") async {
         let content: String
         do {
-            content = try String(contentsOf: url, encoding: .utf8)
+            content = try readSecurityScopedText(at: url, encoding: .utf8)
         } catch {
             errorMessage = "Could not import \(url.lastPathComponent): \(userFacingErrorMessage(for: error))"
             return
@@ -766,6 +766,21 @@ final class ProjectWorkspaceState {
     }
 
     private func userFacingErrorMessage(for error: any Error) -> String {
-        (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        return PathRedaction.redactMessage(message)
+    }
+
+    private func readSecurityScopedText(
+        at url: URL,
+        encoding: String.Encoding = .utf8
+    ) throws -> String {
+        let needsScopedAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if needsScopedAccess {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
+        return try String(contentsOf: url, encoding: encoding)
     }
 }

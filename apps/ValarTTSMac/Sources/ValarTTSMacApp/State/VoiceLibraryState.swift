@@ -45,7 +45,9 @@ final class VoiceLibraryState {
                     displayName: model.descriptor.displayName,
                     familyID: model.familyID,
                     voiceFeatures: voiceSupport.features,
-                    isRecommended: model.isRecommended
+                    isRecommended: model.isRecommended,
+                    supportTier: model.supportTier,
+                    distributionTier: model.distributionTier
                 )
             }
             .sorted { lhs, rhs in
@@ -132,7 +134,8 @@ final class VoiceLibraryState {
     private func voiceCreationErrorMessage(action: String, label: String, error: any Error) -> String {
         let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
         let voiceDescription = trimmedLabel.isEmpty ? "this voice" : "\"\(trimmedLabel)\""
-        let reason = error.localizedDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        let reason = PathRedaction.redactMessage(error.localizedDescription)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
 
         if reason.isEmpty {
             return "Couldn't \(action) for \(voiceDescription)."

@@ -90,7 +90,8 @@ struct GeneratorPlayerView: View {
             do {
                 try await state.saveGeneratedAudio(to: destinationURL)
             } catch {
-                saveErrorMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                saveErrorMessage = PathRedaction.redactMessage(message)
             }
         }
     }

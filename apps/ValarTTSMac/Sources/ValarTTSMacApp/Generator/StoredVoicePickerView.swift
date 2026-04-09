@@ -128,10 +128,15 @@ struct StoredVoicePickerView: View {
     }
 
     private static func releaseVisibleVibeVoicePreset(_ voice: VoiceLibraryRecord) -> Bool {
-        guard let identifier = voice.voiceID ?? voice.name else {
+        guard let identifier = voice.backendVoiceID ?? nonEmptyLabel(for: voice) else {
             return true
         }
         return VibeVoiceCatalog.isReleaseVisiblePreset(identifier)
+    }
+
+    private static func nonEmptyLabel(for voice: VoiceLibraryRecord) -> String? {
+        let trimmed = voice.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     // MARK: - Partitioning

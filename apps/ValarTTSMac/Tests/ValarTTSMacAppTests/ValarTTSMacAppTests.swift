@@ -607,20 +607,20 @@ final class ValarTTSMacAppTests: XCTestCase {
         return (services, inferenceBackend)
     }
 
-    func testBootstrapSeedsCuratedCatalogAndInstalledCore() async {
+    func testBootstrapSeedsPublicCuratedCatalogMetadata() async {
         let hub = ValarServiceHub.live(appPaths: try! makeAppPaths())
         let snapshot = await hub.snapshot()
         let diagnosticsSnapshot = await hub.diagnosticsSnapshot()
 
-        XCTAssertEqual(snapshot.modelCount, 8)
-        XCTAssertEqual(snapshot.installedModelCount, 8)
+        XCTAssertEqual(snapshot.modelCount, 7)
+        XCTAssertEqual(snapshot.installedModelCount, 0)
         XCTAssertEqual(snapshot.recommendedModelCount, 5)
-        XCTAssertEqual(snapshot.availableGenerationModels.count, 6)
+        XCTAssertEqual(snapshot.availableGenerationModels.count, 5)
         XCTAssertEqual(snapshot.availableRecognitionModels.count, 2)
         XCTAssertTrue(snapshot.compatibilityReport.preservedModelIdentifiers.isEmpty)
-        XCTAssertEqual(diagnosticsSnapshot.compatibilityReport.preservedModelIdentifiers.count, 8)
+        XCTAssertEqual(diagnosticsSnapshot.compatibilityReport.preservedModelIdentifiers.count, 7)
         XCTAssertNotNil(snapshot.availableGenerationModels.first?.id)
-        XCTAssertTrue(snapshot.catalogModels.contains(where: { $0.familyID == .tadaTTS }))
+        XCTAssertFalse(snapshot.catalogModels.contains(where: { $0.familyID == .tadaTTS }))
     }
 
     func testGeneratorRuntimeOptionsReadModelRegistryAndVoiceStore() async throws {
@@ -828,7 +828,7 @@ final class ValarTTSMacAppTests: XCTestCase {
         XCTAssertEqual(partition.saved.map(\.label), ["Claire Memo"])
     }
 
-    func testGeneratorRuntimeOptionsIncludeSupportedTadaModels() async throws {
+    func testGeneratorRuntimeOptionsExcludeUninstalledTadaModelsFromPublicSurface() async throws {
         let appPaths = try makeAppPaths()
         let runtimeConfiguration = RuntimeConfiguration()
         let modelRegistry = ModelRegistry(configuration: runtimeConfiguration)
@@ -897,8 +897,8 @@ final class ValarTTSMacAppTests: XCTestCase {
         let state = GeneratorState(services: services)
         await state.reloadRuntimeOptions(selectedModelID: nil)
 
-        XCTAssertTrue(state.availableModels.contains(where: { $0.id == TadaCatalog.tada1BModelIdentifier }))
-        XCTAssertTrue(state.availableModels.contains(where: { $0.id == TadaCatalog.tada3BModelIdentifier }))
+        XCTAssertEqual(state.availableModels.map(\.id), [runtimeDescriptor.id])
+        XCTAssertFalse(state.availableModels.contains(where: { $0.familyID == .tadaTTS }))
     }
 
     func testAppStateRefreshSnapshotUsesRuntimeModelRegistryForSelection() async throws {
@@ -1476,18 +1476,16 @@ final class ValarTTSMacAppTests: XCTestCase {
         XCTAssertEqual(reopened.renderSynthesisOptions, expectedOptions)
     }
 
-    func testSelectedModelDefaultsToInstalledQwenGenerationModel() async {
+    func testSelectedModelDefaultsToPublicQwenGenerationModel() async {
         let hub = ValarServiceHub.live(appPaths: try! makeAppPaths())
         let snapshot = await hub.snapshot()
 
         let generationModels = snapshot.availableGenerationModels
         XCTAssertFalse(generationModels.isEmpty)
 
-        let first = generationModels.first
-        XCTAssertNotNil(first)
-        XCTAssertTrue(first?.descriptor.capabilities.contains(.speechSynthesis) == true)
-        XCTAssertEqual(first?.installState, .installed)
-        XCTAssertEqual(first?.familyID, .qwen3TTS)
+        XCTAssertTrue(generationModels.allSatisfy { $0.descriptor.capabilities.contains(.speechSynthesis) })
+        XCTAssertTrue(generationModels.allSatisfy { $0.installState == .supported })
+        XCTAssertTrue(generationModels.contains(where: { $0.familyID == .qwen3TTS }))
     }
 
     func testLiveCreatesDiskDatabaseAndPersistsAcrossRestart() async throws {
@@ -1511,7 +1509,7 @@ final class ValarTTSMacAppTests: XCTestCase {
         XCTAssertEqual(snapshot2.projects.first?.title, "Persisted Chronicle")
         XCTAssertEqual(snapshot2.voiceCount, 1)
         XCTAssertEqual(snapshot2.voices.first?.label, "Persistent Narrator")
-        XCTAssertEqual(snapshot2.installedModelCount, 7)
+        XCTAssertEqual(snapshot2.installedModelCount, 0)
     }
 
     func testModelBundleImporterRejectsMissingManifest() async throws {
@@ -1625,6 +1623,25 @@ final class ValarTTSMacAppTests: XCTestCase {
     func testFileValidatorRejectsNonexistentFile() {
         let fakeURL = FileManager.default.temporaryDirectory.appendingPathComponent("nonexistent.wav")
         XCTAssertThrowsError(try VoiceCloneFileValidator.validateFileSelection(fakeURL)) { error in
+            XCTAssertEqual(error as? VoiceCloneError, .unreadableFile)
+        }
+    }
+
+    func testFileValidatorRejectsDirectories() throws {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let wavDirectory = tempDir.appendingPathComponent("folder.wav", isDirectory: true)
+        try FileManager.default.createDirectory(at: wavDirectory, withIntermediateDirectories: true)
+
+        XCTAssertThrowsError(try VoiceCloneFileValidator.validateFileSelection(wavDirectory)) { error in
+            XCTAssertEqual(error as? VoiceCloneError, .unreadableFile)
+        }
+    }
+
+    func testFileValidatorRejectsNonFileURLs() {
+        let remoteURL = URL(string: "https://example.com/reference.wav")!
+        XCTAssertThrowsError(try VoiceCloneFileValidator.validateFileSelection(remoteURL)) { error in
             XCTAssertEqual(error as? VoiceCloneError, .unreadableFile)
         }
     }
@@ -1827,8 +1844,8 @@ final class ValarTTSMacAppTests: XCTestCase {
             outputFileName: "other.wav",
             createdAt: Date(timeIntervalSince1970: 2)
         )
-        await services.projectStore.addRenderJob(documentJob)
-        await services.projectStore.addRenderJob(otherJob)
+        try await services.grdbRenderJobStore.save(documentJob)
+        try await services.grdbRenderJobStore.save(otherJob)
 
         let appState = AppState(services: services, sharedServices: services, documentProjectID: documentProject.id)
         await appState.load()
@@ -2141,7 +2158,7 @@ final class ValarTTSMacAppTests: XCTestCase {
         XCTAssertEqual(state.playbackPosition, totalDuration, accuracy: 0.000_001)
         XCTAssertFalse(state.isPlaying)
         XCTAssertFalse(state.isPlaybackBuffering)
-        XCTAssertEqual(audioMetrics.feedCount, 2)
+        XCTAssertEqual(audioMetrics.feedSamplesCount, 2)
         XCTAssertEqual(audioMetrics.finishStreamCallCount, 1)
     }
 
@@ -2193,7 +2210,7 @@ final class ValarTTSMacAppTests: XCTestCase {
         XCTAssertEqual(state.audioDuration, totalDuration, accuracy: 0.000_001)
         XCTAssertFalse(state.isPlaybackBuffering)
         XCTAssertFalse(state.isPlaying)
-        XCTAssertEqual(audioMetrics.feedCount, 2)
+        XCTAssertEqual(audioMetrics.feedSamplesCount, 2)
     }
 
     func testGeneratorStateStopsReplayImmediatelyWhenToggledOff() async throws {

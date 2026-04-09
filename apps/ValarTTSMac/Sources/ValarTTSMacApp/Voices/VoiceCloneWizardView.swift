@@ -209,7 +209,7 @@ struct VoiceCloneWizardView: View {
                 try await onSave(draft)
                 dismiss()
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = PathRedaction.redactMessage(error.localizedDescription)
                 isSaving = false
             }
         }
@@ -222,7 +222,7 @@ struct VoiceCloneWizardView: View {
                 _ = selectFile(url)
             }
         case .failure(let error):
-            errorMessage = error.localizedDescription
+            errorMessage = PathRedaction.redactMessage(error.localizedDescription)
         }
     }
 
@@ -231,7 +231,7 @@ struct VoiceCloneWizardView: View {
         do {
             try VoiceCloneFileValidator.validateFileSelection(url)
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = PathRedaction.redactMessage(error.localizedDescription)
             return false
         }
 

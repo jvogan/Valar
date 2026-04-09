@@ -314,7 +314,7 @@ final class GeneratorState {
 
             generationProgress = 1
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = PathRedaction.redactMessage(error.localizedDescription)
             cancelPlaybackMonitoring()
             await services.audioPlayer.stop()
             resetGeneratedAudio()

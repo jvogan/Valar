@@ -104,7 +104,7 @@ struct GeneratorReferenceAudioSection: View {
                 _ = selectFile(url)
             }
         case .failure(let error):
-            state.errorMessage = error.localizedDescription
+            state.errorMessage = PathRedaction.redactMessage(error.localizedDescription)
         }
     }
 
@@ -115,7 +115,7 @@ struct GeneratorReferenceAudioSection: View {
             state.errorMessage = nil
             return true
         } catch {
-            state.errorMessage = error.localizedDescription
+            state.errorMessage = PathRedaction.redactMessage(error.localizedDescription)
             return false
         }
     }

@@ -240,7 +240,9 @@ actor ProjectRenderService {
     }
 
     private static func failureReason(from error: any Error) -> String {
-        let preferredMessage = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        let preferredMessage = PathRedaction.redactMessage(
+            (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        )
         let normalizedMessage = preferredMessage
             .components(separatedBy: .whitespacesAndNewlines)
             .filter { !$0.isEmpty }
