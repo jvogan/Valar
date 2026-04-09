@@ -29,7 +29,7 @@ Tasks to complete after the repository is pushed to GitHub. These require the re
 
 ## Community
 
-- [ ] Confirm the `conduct@valartts.org` email from CODE_OF_CONDUCT.md is active (or update to a working address)
+- [ ] Decide whether to replace the temporary private conduct intake with a dedicated contact address
 - [ ] Consider creating a Discord or community channel and linking from README
 - [ ] Consider adding a `FUNDING.yml` once a sponsorship handle is ready
 
