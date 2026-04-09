@@ -19,12 +19,6 @@ Preferred path:
 - use GitHub Security Advisories on the public `Valar` repo
 - do not publish exploit details in public issues while the report is untriaged
 
-Before public intake is opened widely, maintainers should ensure:
-
-- do not open the public repo to outside contributions until GitHub Security Advisories are enabled
-- treat that advisory flow as the supported disclosure channel in the first public release
-- enable secret scanning and push protection before accepting public contributions
-
 Please include:
 
 - what is vulnerable

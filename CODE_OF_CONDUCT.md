@@ -28,7 +28,7 @@ This code of conduct applies to:
 
 ## Reporting
 
-For routine behavior issues, contact the maintainers through the repository's support or maintainer channels.
+For routine behavior issues, email the maintainers at **conduct@valartts.org** or open a GitHub issue if the matter is not sensitive.
 
 For security issues, do not use public issues. Follow [SECURITY.md](./SECURITY.md) instead.
 

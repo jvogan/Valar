@@ -28,8 +28,17 @@ Manager. They are not vendored in this repository but are resolved at build
 time.
 
 - **GRDB** (`groue/GRDB.swift`) — MIT
-- **DSWaveformImage** (`dmrschmidt/DSWaveformImage`) — MIT
 - **Hummingbird** (`hummingbird-project/hummingbird`) — Apache 2.0
+- **FluidAudio** (`FluidInference/FluidAudio`) — MIT
+- **swift-atomics** (`apple/swift-atomics`) — Apache 2.0
+- **swift-ogg** (`element-hq/swift-ogg`) — Apache 2.0
+- **swift-argument-parser** (`apple/swift-argument-parser`) — Apache 2.0
+- **swift-transformers** (`huggingface/swift-transformers`) — Apache 2.0
+- **swift-huggingface** (`huggingface/swift-huggingface`) — Apache 2.0
+- **mlx-swift** (`ml-explore/mlx-swift`) — MIT
+- **mlx-swift-lm** (`ml-explore/mlx-swift-lm`) — MIT
+- **swift-nio** (`apple/swift-nio`) — Apache 2.0
+- **swift-crypto** (`apple/swift-crypto`) — Apache 2.0
 
 ## Summary
 

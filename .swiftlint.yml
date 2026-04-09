@@ -7,7 +7,6 @@ included:
   - Packages
 
 excluded:
-  - Packages/ValarCompat   # Legacy parity code — not held to current standards
   - .build
   - .venv
   - mlx_audio

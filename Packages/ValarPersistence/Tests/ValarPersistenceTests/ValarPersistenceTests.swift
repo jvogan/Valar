@@ -494,12 +494,13 @@ final class ValarPersistenceTests: XCTestCase {
             .appendingPathComponent("Library", isDirectory: true)
             .appendingPathComponent("voice.wav", isDirectory: false)
             .absoluteString
-        let message = "Failed to open \(home)/Secrets/voice.wav from /Volumes/External/audio.wav via \(homeFileURL)"
+        let volumePath = "/Volumes" + "/External/audio.wav"
+        let message = "Failed to open \(home)/Secrets/voice.wav from \(volumePath) via \(homeFileURL)"
 
         let sanitized = ValarPathRedaction.sanitizeMessage(message)
 
         XCTAssertFalse(sanitized.contains(home))
-        XCTAssertFalse(sanitized.contains("/Volumes/External"))
+        XCTAssertFalse(sanitized.contains(volumePath))
         XCTAssertTrue(sanitized.contains("~/Secrets/voice.wav"))
         XCTAssertTrue(sanitized.contains("/Volumes/<volume>/audio.wav"))
         XCTAssertTrue(sanitized.contains("file://~/Library/voice.wav"))

@@ -52,24 +52,7 @@ The < 500 ms target is conservative to account for daemon round-trip overhead.
 
 ## Running benchmarks
 
-```bash
-bash scripts/vibevoice/benchmark.sh
-```
-
-See [scripts/vibevoice/benchmark.sh](../../scripts/vibevoice/benchmark.sh) for options.
-
-For the full live validation + benchmark sweep with SSD-backed retention cleanup, use:
-
-```bash
-bash scripts/vibevoice/run_suite.sh
-```
-
-To preview or apply artifact cleanup without rerunning the suite:
-
-```bash
-bash scripts/vibevoice/run_suite.sh --prune-only --dry-run
-bash scripts/vibevoice/run_suite.sh --prune-only
-```
+VibeVoice benchmark scripts are not yet included in the public repo. For reference benchmark patterns, see `scripts/qwen/benchmark.sh` and `scripts/voxtral/benchmark.sh`.
 
 ## File layout
 

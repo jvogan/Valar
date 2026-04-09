@@ -1,0 +1,13 @@
+# Default owner for everything in the repo
+* @jvogan
+
+# Swift packages
+/Packages/ @jvogan
+/apps/ @jvogan
+
+# MCP bridge
+/bridge/ @jvogan
+
+# CI and security
+/.github/ @jvogan
+/tools/ @jvogan

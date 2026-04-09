@@ -9,3 +9,33 @@ updates:
     directory: "/bridge"
     schedule:
       interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/apps/ValarCLI"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/apps/ValarDaemon"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/Packages/ValarMLX"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/Packages/ValarAudio"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/Packages/ValarPersistence"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/Packages/mlx-audio-swift-valar"
+    schedule:
+      interval: "weekly"
