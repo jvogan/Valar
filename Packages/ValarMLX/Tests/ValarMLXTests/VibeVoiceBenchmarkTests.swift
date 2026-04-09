@@ -22,7 +22,10 @@ import ValarModelKit
 ///   must invoke the loader exactly once.
 ///
 /// End-to-end RTF measurements require a real VibeVoice model and a running
-/// daemon; those are captured by `scripts/vibevoice/benchmark.sh`.
+/// daemon. The public repo ships the benchmark corpus and reference benchmark
+/// patterns in `scripts/qwen/benchmark.sh` and `scripts/voxtral/benchmark.sh`;
+/// VibeVoice-specific live benchmark guidance lives in
+/// `tests/vibevoice_corpus/README.md`.
 @Suite("VibeVoice Performance")
 struct VibeVoiceBenchmarkTests {
 
@@ -181,8 +184,9 @@ struct VibeVoiceBenchmarkTests {
     /// yields one chunk after a 150 ms simulated TTS latency. The measurement verifies
     /// that the consumer side does not add hidden overhead beyond the generator delay.
     ///
-    /// Real first-chunk latency (including Metal inference) is measured by
-    /// `scripts/vibevoice/benchmark.sh` against a live daemon.
+    /// Real first-chunk latency (including Metal inference) is measured against
+    /// a live daemon using the benchmark corpus and the reference patterns
+    /// documented in `tests/vibevoice_corpus/README.md`.
     @Test("First AudioChunk arrives within the simulated generator delay")
     func firstChunkArrivesWithinGeneratorDelay() async throws {
         let generatorDelay = Duration.milliseconds(150)
@@ -217,7 +221,8 @@ struct VibeVoiceBenchmarkTests {
     /// text files exist relative to the repo root.
     ///
     /// This test is not a performance test, but it runs in this suite because it
-    /// guards the inputs that `scripts/vibevoice/benchmark.sh` depends on.
+    /// guards the corpus inputs used by the live benchmark workflow described in
+    /// `tests/vibevoice_corpus/README.md`.
     @Test("vibevoice_corpus manifest is valid and all text files exist")
     func corpusManifestIsValid() throws {
         let testSourceDir = URL(fileURLWithPath: #file)

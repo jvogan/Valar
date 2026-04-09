@@ -39,3 +39,8 @@ updates:
     directory: "/Packages/mlx-audio-swift-valar"
     schedule:
       interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/apps/ValarTTSMac"
+    schedule:
+      interval: "weekly"

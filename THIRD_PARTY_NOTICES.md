@@ -23,9 +23,11 @@ own upstream model licenses and usage terms.
 
 ## Swift Package Dependencies
 
-The following Swift packages are linked as dependencies via Swift Package
-Manager. They are not vendored in this repository but are resolved at build
-time.
+The following Swift packages are resolved as direct or transitive dependencies
+via Swift Package Manager. They are not vendored in this repository but are
+fetched at build time.
+
+Direct dependencies:
 
 - **GRDB** (`groue/GRDB.swift`) — MIT
 - **Hummingbird** (`hummingbird-project/hummingbird`) — Apache 2.0
@@ -37,6 +39,9 @@ time.
 - **swift-huggingface** (`huggingface/swift-huggingface`) — Apache 2.0
 - **mlx-swift** (`ml-explore/mlx-swift`) — MIT
 - **mlx-swift-lm** (`ml-explore/mlx-swift-lm`) — MIT
+
+Notable transitive dependencies (resolved via Hummingbird):
+
 - **swift-nio** (`apple/swift-nio`) — Apache 2.0
 - **swift-crypto** (`apple/swift-crypto`) — Apache 2.0
 

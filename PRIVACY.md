@@ -35,9 +35,9 @@ The repo code is MIT, but model weights are governed by their upstream licenses.
 
 Important public examples:
 
-- `Soprano`: model-specific upstream license
-- `Qwen`: model-specific upstream license
+- `Soprano`: Apache 2.0
+- `Qwen`: Qwen License Agreement
 - `VibeVoice`: MIT
-- `Voxtral`: CC BY-NC 4.0 and non-commercial only
+- `Voxtral`: CC BY-NC 4.0 (non-commercial only)
 
 Always check the specific model card before deployment or redistribution.
