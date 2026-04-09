@@ -25,8 +25,12 @@ jobs:
         with:
           bun-version: "1.2.13"
 
-      - name: Install validation helpers
-        run: brew install jq ripgrep
+      - name: Ensure validation helpers
+        run: |
+          command -v jq >/dev/null 2>&1 || arch -arm64 brew install jq
+          command -v rg >/dev/null 2>&1 || arch -arm64 brew install ripgrep
+          jq --version
+          rg --version | head -n 1
 
       - name: Bootstrap public native toolchain
         run: bash ./tools/bootstrap.sh native --with-bridge
