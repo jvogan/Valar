@@ -28,7 +28,7 @@ public class AudioPlayer: NSObject, ObservableObject {
     private var queuedBuffers: Int = 0
     private var streamFinished: Bool = false
     private var streamingTask: Task<Void, Never>?
-    private var configurationChangeObserver: Task<Void, Never>?
+    private var configurationChangeObserver: NSObjectProtocol?
 
     public override init() {
         super.init()
@@ -236,8 +236,10 @@ public class AudioPlayer: NSObject, ObservableObject {
         streamingTask?.cancel()
         streamingTask = nil
 
-        configurationChangeObserver?.cancel()
-        configurationChangeObserver = nil
+        if let configurationChangeObserver {
+            NotificationCenter.default.removeObserver(configurationChangeObserver)
+            self.configurationChangeObserver = nil
+        }
 
         playerNode?.stop()
         audioEngine?.stop()
@@ -322,11 +324,14 @@ public class AudioPlayer: NSObject, ObservableObject {
 
     private func observeEngineConfigurationChanges() {
         guard configurationChangeObserver == nil else { return }
-        configurationChangeObserver = Task { @MainActor [weak self] in
-            guard let self else { return }
-
-            for await _ in NotificationCenter.default.notifications(named: .AVAudioEngineConfigurationChange) {
-                guard isStreaming, let engine = audioEngine else { continue }
+        configurationChangeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard isStreaming, let engine = audioEngine else { return }
                 if !engine.isRunning {
                     do {
                         try engine.start()
