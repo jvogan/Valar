@@ -7,12 +7,16 @@ import ValarModelKit
 import ValarPersistence
 
 final class ValarCoreCatalogTests: XCTestCase {
+    private func tadaEntry(_ identifier: ModelIdentifier) throws -> SupportedModelCatalogEntry {
+        try XCTUnwrap(TadaCatalog.supportedEntries.first(where: { $0.id == identifier }))
+    }
+
     func testCatalogVisibilityPolicyHidesVoxtralByDefault() {
         let policy = CatalogVisibilityPolicy(allowsNonCommercialModels: false)
 
         XCTAssertEqual(
-            policy.hiddenReason(for: VoxtralCatalog.modelIdentifier),
-            "Model '\(VoxtralCatalog.modelIdentifier.rawValue)' is hidden by default because it is licensed for non-commercial use only. Set \(CatalogVisibilityPolicy.nonCommercialEnvVarName)=1 to enable non-commercial models intentionally."
+            policy.hiddenReason(for: VoxtralCatalog.mlx4BitModelIdentifier),
+            "Model '\(VoxtralCatalog.mlx4BitModelIdentifier.rawValue)' is hidden by default because it is licensed for non-commercial use only. Set \(CatalogVisibilityPolicy.nonCommercialEnvVarName)=1 to enable non-commercial models intentionally."
         )
     }
 
@@ -24,7 +28,7 @@ final class ValarCoreCatalogTests: XCTestCase {
 
         let models = try await catalog.refresh()
 
-        XCTAssertFalse(models.contains(where: { $0.id == VoxtralCatalog.modelIdentifier }))
+        XCTAssertFalse(models.contains(where: { $0.id == VoxtralCatalog.mlx4BitModelIdentifier }))
         XCTAssertTrue(models.contains(where: { $0.id == "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16" }))
     }
 
@@ -36,10 +40,10 @@ final class ValarCoreCatalogTests: XCTestCase {
 
         let models = try await catalog.refresh()
 
-        XCTAssertTrue(models.contains(where: { $0.id == VoxtralCatalog.modelIdentifier }))
+        XCTAssertTrue(models.contains(where: { $0.id == VoxtralCatalog.mlx4BitModelIdentifier }))
     }
 
-    func testModelCatalogRefreshIncludesTadaByDefault() async throws {
+    func testModelCatalogRefreshExcludesTadaFromPublicCuratedCatalog() async throws {
         let catalog = ModelCatalog(
             supportedSource: SupportedCatalogSource.curated(),
             visibilityPolicyProvider: { CatalogVisibilityPolicy(allowsNonCommercialModels: false) }
@@ -47,8 +51,9 @@ final class ValarCoreCatalogTests: XCTestCase {
 
         let models = try await catalog.refresh()
 
-        XCTAssertTrue(models.contains(where: { $0.id == TadaCatalog.tada1BModelIdentifier }))
-        XCTAssertTrue(models.contains(where: { $0.id == TadaCatalog.tada3BModelIdentifier }))
+        XCTAssertFalse(models.contains(where: { $0.id == TadaCatalog.tada1BModelIdentifier }))
+        XCTAssertFalse(models.contains(where: { $0.id == TadaCatalog.tada3BModelIdentifier }))
+        XCTAssertTrue(models.contains(where: { $0.id == "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16" }))
     }
 
     func testCuratedCatalogEntryWinsOverPersistedDuplicate() async throws {
@@ -70,7 +75,7 @@ final class ValarCoreCatalogTests: XCTestCase {
             )
         )
 
-        let curatedEntry = try XCTUnwrap(SupportedModelCatalog.entry(for: TadaCatalog.tada1BModelIdentifier))
+        let curatedEntry = try tadaEntry(TadaCatalog.tada1BModelIdentifier)
         let catalog = ModelCatalog(
             supportedSource: StaticSupportedCatalogSource(records: [curatedEntry]),
             catalogStore: packRegistry,
@@ -110,7 +115,7 @@ final class ValarCoreCatalogTests: XCTestCase {
         let cacheRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
-        let entry = try XCTUnwrap(SupportedModelCatalog.entry(for: TadaCatalog.tada1BModelIdentifier))
+        let entry = try tadaEntry(TadaCatalog.tada1BModelIdentifier)
         try writeHFHubSnapshotArtifacts(
             cacheRoot: cacheRoot,
             modelID: TadaCatalog.tada1BModelIdentifier.rawValue,
@@ -167,7 +172,7 @@ final class ValarCoreCatalogTests: XCTestCase {
             data: Data(#"{"model":"tada"}"#.utf8)
         )
 
-        let entry = try XCTUnwrap(SupportedModelCatalog.entry(for: TadaCatalog.tada1BModelIdentifier))
+        let entry = try tadaEntry(TadaCatalog.tada1BModelIdentifier)
         let catalog = ModelCatalog(
             supportedSource: StaticSupportedCatalogSource(records: [entry]),
             hfCacheRoot: cacheRoot,
@@ -227,7 +232,7 @@ final class ValarCoreCatalogTests: XCTestCase {
                 .appendingPathComponent(UUID().uuidString, isDirectory: true)
         )
         try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
-        let entry = try XCTUnwrap(SupportedModelCatalog.entry(for: TadaCatalog.tada1BModelIdentifier))
+        let entry = try tadaEntry(TadaCatalog.tada1BModelIdentifier)
         let manifest = ModelCatalog.makePersistenceManifest(from: entry.manifest)
         let packRegistry = ModelPackRegistry(paths: paths)
         _ = try await packRegistry.install(
