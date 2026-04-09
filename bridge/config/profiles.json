@@ -1,0 +1,20 @@
+{
+  "profiles": {
+    "default-fast": {
+      "voiceId": null,
+      "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+      "format": "wav",
+      "channelPrefs": {
+        "format": "ogg_opus"
+      }
+    },
+    "default-quality": {
+      "voiceId": null,
+      "model": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+      "format": "wav",
+      "channelPrefs": {
+        "format": "ogg_opus"
+      }
+    }
+  }
+}

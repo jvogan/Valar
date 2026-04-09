@@ -1,0 +1,2 @@
+Ciao da VibeVoice. Questo riferimento verifica un ritmo regolare e un tono neutro chiaro.
+La sintesi vocale in tempo reale consegna il primo blocco audio entro trecento millisecondi dalla richiesta.

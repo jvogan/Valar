@@ -1,0 +1,34 @@
+{
+  "model": "mlx-community/VibeVoice-Realtime-0.5B-4bit",
+  "license": "MIT",
+  "entries": [
+    { "language": "en", "voice_id": "en-Emma_woman",   "file": "en.txt", "case": "short", "line": 1 },
+    { "language": "en", "voice_id": "en-Emma_woman",   "file": "en.txt", "case": "medium", "line": 2 },
+    { "language": "de", "voice_id": "de-Spk1_woman",   "file": "de.txt", "case": "short", "line": 1 },
+    { "language": "de", "voice_id": "de-Spk1_woman",   "file": "de.txt", "case": "medium", "line": 2 },
+    { "language": "fr", "voice_id": "fr-Spk1_woman",   "file": "fr.txt", "case": "short", "line": 1 },
+    { "language": "fr", "voice_id": "fr-Spk1_woman",   "file": "fr.txt", "case": "medium", "line": 2 },
+    { "language": "es", "voice_id": "sp-Spk0_woman",   "file": "es.txt", "case": "short", "line": 1 },
+    { "language": "es", "voice_id": "sp-Spk0_woman",   "file": "es.txt", "case": "medium", "line": 2 },
+    { "language": "it", "voice_id": "it-Spk0_woman",   "file": "it.txt", "case": "short", "line": 1 },
+    { "language": "it", "voice_id": "it-Spk0_woman",   "file": "it.txt", "case": "medium", "line": 2 },
+    { "language": "nl", "voice_id": "nl-Spk1_woman",   "file": "nl.txt", "case": "short", "line": 1 },
+    { "language": "nl", "voice_id": "nl-Spk1_woman",   "file": "nl.txt", "case": "medium", "line": 2 },
+    { "language": "pt", "voice_id": "pt-Spk0_woman",   "file": "pt.txt", "case": "short", "line": 1 },
+    { "language": "pt", "voice_id": "pt-Spk0_woman",   "file": "pt.txt", "case": "medium", "line": 2 },
+    { "language": "pl", "voice_id": "pl-Spk1_woman",   "file": "pl.txt", "case": "short", "line": 1 },
+    { "language": "pl", "voice_id": "pl-Spk1_woman",   "file": "pl.txt", "case": "medium", "line": 2 },
+    { "language": "hi", "voice_id": "in-Samuel_man",   "file": "hi.txt", "case": "short", "line": 1 },
+    { "language": "hi", "voice_id": "in-Samuel_man",   "file": "hi.txt", "case": "medium", "line": 2 },
+    { "language": "ja", "voice_id": "jp-Spk1_woman",   "file": "ja.txt", "case": "short", "line": 1 },
+    { "language": "ja", "voice_id": "jp-Spk1_woman",   "file": "ja.txt", "case": "medium", "line": 2 },
+    { "language": "ko", "voice_id": "kr-Spk0_woman",   "file": "ko.txt", "case": "short", "line": 1 },
+    { "language": "ko", "voice_id": "kr-Spk0_woman",   "file": "ko.txt", "case": "medium", "line": 2 }
+  ],
+  "notes": {
+    "case_short":  "Line 1 of each file — one sentence (~12 words). Tests first-chunk latency.",
+    "case_medium": "Line 2 of each file — one longer sentence (~25 words). Tests steady-state RTF.",
+    "voice_id_format": "vibevoice:<voice_id> at runtime (e.g. vibevoice:en-Emma_woman)",
+    "language_tags": "BCP-47 codes. VibeVoice maps 'hi'→'in-Samuel_man', 'ja'→'jp-Spk*', 'ko'→'kr-Spk*', 'es'→'sp-Spk*'."
+  }
+}

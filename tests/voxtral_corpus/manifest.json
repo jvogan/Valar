@@ -1,0 +1,15 @@
+{
+  "model": "mistralai/Voxtral-4B-TTS-2603",
+  "license": "CC BY-NC 4.0",
+  "entries": [
+    { "language": "en", "voice_id": "neutral_female", "file": "en.txt" },
+    { "language": "fr", "voice_id": "fr_female", "file": "fr.txt" },
+    { "language": "de", "voice_id": "de_female", "file": "de.txt" },
+    { "language": "es", "voice_id": "es_female", "file": "es.txt" },
+    { "language": "nl", "voice_id": "nl_female", "file": "nl.txt" },
+    { "language": "pt", "voice_id": "pt_female", "file": "pt.txt" },
+    { "language": "it", "voice_id": "it_female", "file": "it.txt" },
+    { "language": "hi", "voice_id": "hi_female", "file": "hi.txt" },
+    { "language": "ar", "voice_id": "ar_male", "file": "ar.txt" }
+  ]
+}

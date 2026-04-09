@@ -1,0 +1,134 @@
+{
+  "version": 1,
+  "description": "Golden corpus for end-to-end parity testing of the ValarMLX speech pipeline",
+  "categories": {
+    "chat_template": "Qwen3 chat template formatting and token structure",
+    "decoder_config": "SpeechTokenizerDecoderConfig default values matching Python spec",
+    "decoder_pipeline": "SpeechTokenizerDecoder forward pass with deterministic small config",
+    "weight_sanitization": "Python→Swift weight key remapping parity",
+    "chunked_decode": "Chunked vs unchunked decode equivalence"
+  },
+  "chat_template_cases": [
+    {
+      "tag": "simple_greeting",
+      "input_text": "Hello world",
+      "expected_format": "<|im_start|>assistant\nHello world<|im_end|>\n<|im_start|>assistant\n",
+      "expected_special_token_positions": {
+        "im_start_ids": [151644],
+        "im_end_ids": [151645]
+      }
+    },
+    {
+      "tag": "empty_text",
+      "input_text": "",
+      "expected_format": "<|im_start|>assistant\n<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "tag": "multiline_text",
+      "input_text": "Line one.\nLine two.",
+      "expected_format": "<|im_start|>assistant\nLine one.\nLine two.<|im_end|>\n<|im_start|>assistant\n"
+    },
+    {
+      "tag": "unicode_text",
+      "input_text": "Héllo wörld",
+      "expected_format": "<|im_start|>assistant\nHéllo wörld<|im_end|>\n<|im_start|>assistant\n"
+    }
+  ],
+  "decoder_config_parity": {
+    "description": "Default config values must match Python Qwen3TTSTokenizerDecoderConfig exactly",
+    "codebook_dim": 512,
+    "codebook_size": 2048,
+    "num_quantizers": 16,
+    "num_semantic_quantizers": 1,
+    "latent_dim": 1024,
+    "decoder_dim": 1536,
+    "upsample_rates": [8, 5, 4, 3],
+    "upsampling_ratios": [2, 2],
+    "hidden_size": 512,
+    "intermediate_size": 1024,
+    "num_hidden_layers": 8,
+    "num_attention_heads": 16,
+    "num_key_value_heads": 16,
+    "head_dim": 64,
+    "rms_norm_eps": 1e-5,
+    "rope_theta": 10000.0,
+    "sliding_window": 72,
+    "layer_scale_initial_scale": 0.01,
+    "attention_bias": false,
+    "total_upsample": 1920,
+    "output_dim": 96
+  },
+  "weight_key_remap_cases": [
+    {
+      "tag": "rvq_first",
+      "python_key": "decoder.quantizer.rvq_first.layers.0.codebook.embed.weight",
+      "swift_key": "decoder.quantizer.rvqFirst.layers.0.codebook.embed.weight"
+    },
+    {
+      "tag": "rvq_rest",
+      "python_key": "decoder.quantizer.rvq_rest.layers.0.codebook.embed.weight",
+      "swift_key": "decoder.quantizer.rvqRest.layers.0.codebook.embed.weight"
+    },
+    {
+      "tag": "pre_conv",
+      "python_key": "decoder.pre_conv.conv.weight",
+      "swift_key": "decoder.preConv.conv.weight"
+    },
+    {
+      "tag": "pre_transformer",
+      "python_key": "decoder.pre_transformer.layers.0.self_attn.q_proj.weight",
+      "swift_key": "decoder.preTransformer.layers.0.self_attn.q_proj.weight"
+    },
+    {
+      "tag": "input_proj",
+      "python_key": "decoder.quantizer.rvq_first.layers.0.input_proj.weight",
+      "swift_key": "decoder.quantizer.rvqFirst.layers.0.inputProj.weight"
+    },
+    {
+      "tag": "output_proj",
+      "python_key": "decoder.quantizer.rvq_first.layers.0.output_proj.weight",
+      "swift_key": "decoder.quantizer.rvqFirst.layers.0.outputProj.weight"
+    },
+    {
+      "tag": "encoder_model",
+      "python_key": "encoder_model.layers.0.weight",
+      "swift_key": "encoderModel.layers.0.weight"
+    }
+  ],
+  "small_decoder_cases": [
+    {
+      "tag": "single_frame",
+      "description": "Single time frame through small decoder",
+      "num_quantizers": 2,
+      "time_steps": 1,
+      "batch_size": 1,
+      "expected_output_channels": 1,
+      "expected_temporal_upsample": 12
+    },
+    {
+      "tag": "short_sequence",
+      "description": "Short sequence through small decoder",
+      "num_quantizers": 2,
+      "time_steps": 4,
+      "batch_size": 1,
+      "expected_output_channels": 1,
+      "expected_temporal_upsample": 12
+    },
+    {
+      "tag": "batched",
+      "description": "Batched input through small decoder",
+      "num_quantizers": 2,
+      "time_steps": 4,
+      "batch_size": 2,
+      "expected_output_channels": 1,
+      "expected_temporal_upsample": 12
+    }
+  ],
+  "special_tokens_parity": {
+    "im_start": 151644,
+    "im_end": 151645,
+    "tts_pad": 151671,
+    "tts_bos": 151672,
+    "tts_eos": 151673
+  }
+}

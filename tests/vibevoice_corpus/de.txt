@@ -1,0 +1,2 @@
+Hallo von VibeVoice. Dieser Referenzsatz prüft ruhiges Tempo und deutliche Aussprache.
+Die Echtzeit-Sprachsynthese liefert den ersten Audiobaustein innerhalb von dreihundert Millisekunden nach der Anfrage.

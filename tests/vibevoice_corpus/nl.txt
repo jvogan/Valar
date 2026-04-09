@@ -1,0 +1,2 @@
+Hallo van VibeVoice. Deze referentie controleert een rustig tempo en een helder neutrale toon.
+De realtime spraaksynthese levert het eerste audioblok binnen driehonderd milliseconden na het verzoek.

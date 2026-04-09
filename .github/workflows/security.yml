@@ -1,0 +1,30 @@
+name: Public Security Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit-and-secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install scan helpers
+        run: sudo apt-get update && sudo apt-get install -y ripgrep
+
+      - name: Run public audit
+        run: bash ./tools/public_repo_audit.sh --root .
+
+      - name: Run tracked-file secret scan
+        run: bash ./tools/public_repo_secret_scan.sh --root .

@@ -1,0 +1,22 @@
+[
+  {"input": "", "expected_ids": [], "tag": "empty_string"},
+  {"input": "d", "expected_ids": [7], "tag": "single_ascii_char"},
+  {"input": "hello", "expected_ids": [11], "tag": "full_merge_chain"},
+  {"input": "hello world", "expected_ids": [11, 16], "tag": "two_words"},
+  {"input": "held", "expected_ids": [9, 7], "tag": "partial_merge"},
+  {"input": "hex", "expected_ids": [8], "tag": "merge_plus_unknown_skip"},
+  {"input": "or", "expected_ids": [13], "tag": "single_merge_pair"},
+  {"input": "world", "expected_ids": [5, 13, 2, 7], "tag": "multi_token_word"},
+  {"input": "hello hello", "expected_ids": [11, 4, 11], "tag": "repeated_word"},
+  {"input": "word", "expected_ids": [5, 13, 7], "tag": "three_token_word"},
+  {"input": "\ud83c\udfa4", "expected_ids": [], "tag": "emoji"},
+  {"input": "\u65e5\u672c\u8a9e", "expected_ids": [], "tag": "cjk"},
+  {"input": "hello!", "expected_ids": [11], "tag": "ascii_plus_punctuation"},
+  {"input": "  ", "expected_ids": [4, 4], "tag": "whitespace_only"},
+  {"input": "hello, world", "expected_ids": [11, 16], "tag": "comma_separated"},
+  {"input": "Hello World", "expected_ids": [1, 2, 2, 3, 4, 13, 2, 7], "tag": "case_sensitivity"},
+  {"input": "hello world hello world", "expected_ids": [11, 16, 4, 11, 16], "tag": "repeated_phrase"},
+  {"input": "42", "expected_ids": [], "tag": "digits_only"},
+  {"input": "hello-world", "expected_ids": [11, 5, 13, 2, 7], "tag": "hyphenated"},
+  {"input": "caf\u00e9", "expected_ids": [], "tag": "accented_latin"}
+]

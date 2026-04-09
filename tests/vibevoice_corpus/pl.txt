@@ -1,0 +1,2 @@
+Cześć od VibeVoice. Ta próbka sprawdza spokojne tempo i wyraźny neutralny ton.
+Synteza mowy w czasie rzeczywistym dostarcza pierwszy blok audio w ciągu trzystu milisekund od żądania.

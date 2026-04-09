@@ -1,0 +1,2 @@
+Hola desde VibeVoice. Esta referencia comprueba un ritmo tranquilo y un tono neutral claro.
+La síntesis de voz en tiempo real entrega el primer bloque de audio en trescientos milisegundos tras la solicitud.

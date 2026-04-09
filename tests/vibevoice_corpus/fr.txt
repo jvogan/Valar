@@ -1,0 +1,2 @@
+Bonjour de VibeVoice. Cette référence vérifie un rythme régulier et un ton neutre clair.
+La synthèse vocale en temps réel livre le premier bloc audio dans les trois cents millisecondes suivant la requête.

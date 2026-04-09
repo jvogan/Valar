@@ -1,0 +1,43 @@
+# .swiftlint.yml — ValarTTS
+# SwiftLint configuration for a SwiftUI + Swift 6 project.
+# Run: swiftlint lint --config .swiftlint.yml
+
+included:
+  - apps
+  - Packages
+
+excluded:
+  - Packages/ValarCompat   # Legacy parity code — not held to current standards
+  - .build
+  - .venv
+  - mlx_audio
+
+# ── Line length ────────────────────────────────────────────────────────────────
+line_length:
+  warning: 120
+  error: 200
+  ignores_comments: true
+  ignores_urls: true
+
+# ── Warnings (non-blocking, flag for review) ──────────────────────────────────
+opt_in_rules:
+  - force_unwrapping
+  - force_cast
+
+force_unwrapping:
+  severity: warning
+
+force_cast:
+  severity: warning
+
+# ── Style ─────────────────────────────────────────────────────────────────────
+trailing_whitespace:
+  ignores_empty_lines: true
+
+trailing_newline: warning
+
+# ── Disabled rules ────────────────────────────────────────────────────────────
+# Disable rules that conflict with Swift 6 concurrency patterns or generated code.
+disabled_rules:
+  - todo               # TODOs are tracked in Linear, not lint
+  - identifier_name    # Short loop vars (i, x, db) are idiomatic in Swift

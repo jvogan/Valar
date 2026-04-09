@@ -1,0 +1,22 @@
+repos:
+
+# ── Python ────────────────────────────────────────────────────────────────────
+-   repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 24.2.0
+    hooks:
+    -   id: black
+-   repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+    -   id: isort
+        args:
+            - --profile=black
+
+# ── Swift ─────────────────────────────────────────────────────────────────────
+-   repo: https://github.com/realm/SwiftLint
+    rev: 0.57.1
+    hooks:
+    -   id: swiftlint
+        args:
+            - --config
+            - .swiftlint.yml

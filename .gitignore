@@ -1,0 +1,100 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage/
+htmlcov/
+
+# Backup files
+*.bak
+
+# macOS / Xcode / SwiftPM
+DerivedData/
+.derivedData/
+.build/
+.build-cache/
+.build-stable/
+.swiftpm/
+SourcePackages/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+*.xcuserdatad/
+*.xcuserstate
+*.xccheckout
+*.xcactivitylog
+*.xcresult/
+*.dSYM/
+*.swiftmodule
+*.swiftdoc
+*.swiftsourceinfo
+*.trace
+*.metrics
+*.instrument
+*.ips
+*.profraw
+*.profdata
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+scripts/voxtral/.venv/
+
+# Node / JS
+node_modules/
+.next/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project outputs
+test.ipynb
+output/
+reports/
+tmp/
+*.safetensors
+logs/
+*.log
+*.out
+*.pid
+artifacts/voxtral-benchmarks/
+artifacts/repo-health/
+.env
+.env.*
+
+# Agent and local scratch
+.codex/
+.agents/
+agent-scratch/
+worklogs/
+rewrite-notes/

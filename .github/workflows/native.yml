@@ -1,0 +1,35 @@
+name: Native Validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-public:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.13"
+
+      - name: Install validation helpers
+        run: brew install jq ripgrep
+
+      - name: Bootstrap public native toolchain
+        run: bash ./tools/bootstrap.sh native --with-bridge
+
+      - name: Validate public native surface
+        run: bash ./tools/validate.sh --with-bridge

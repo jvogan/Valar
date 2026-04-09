@@ -1,0 +1,2 @@
+Hello from VibeVoice. This reference checks clear pacing and a steady neutral tone.
+The streaming synthesis pipeline delivers the first audio chunk within three hundred milliseconds of the request, enabling low-latency voice applications on Apple Silicon.

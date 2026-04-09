@@ -1,0 +1,19 @@
+{
+  "name": "valar-mcp-bridge",
+  "version": "1.0.0",
+  "description": "Public MCP bridge server for the local Valar daemon",
+  "private": true,
+  "packageManager": "bun@1.2.13",
+  "scripts": {
+    "start": "bun server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.26.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.0.0"
+  }
+}
