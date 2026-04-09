@@ -331,12 +331,12 @@ public class AudioPlayer: NSObject, ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                guard isStreaming, let engine = audioEngine else { return }
+                guard self.isStreaming, let engine = self.audioEngine else { return }
                 if !engine.isRunning {
                     do {
                         try engine.start()
-                        if isPlaying {
-                            playerNode?.play()
+                        if self.isPlaying {
+                            self.playerNode?.play()
                         }
                     } catch {
                         print("Failed to restart audio engine after configuration change: \(error)")
