@@ -25,6 +25,8 @@ make quickstart
 make first-clip
 ```
 
+`make quickstart` bootstraps the native toolchain, builds the CLI and daemon targets, installs MLX Metal shader support for SPM outputs, and runs a readiness check. `make first-clip` installs `Soprano` and writes a proof-of-life WAV.
+
 That writes a starter WAV under your macOS temp directory by default, usually at `$TMPDIR/valar-first-clip.wav`. Override it with `VALAR_FIRST_CLIP_OUTPUT=/absolute/path.wav`.
 
 If `make quickstart` reports a missing Metal toolchain, fix Xcode first:
@@ -40,7 +42,7 @@ If you already use another Valar checkout on the same Mac, isolate this repo whi
 export VALARTTS_HOME="$PWD/.valartts-public-home"
 ```
 
-## Choose Your Model
+## What Works Today
 
 | Goal | Start with | Why |
 | --- | --- | --- |

@@ -23,12 +23,14 @@ This directory is the public doc set for Valar.
 - when to use the CLI, daemon, bridge, and app surfaces
 - the public MCP bridge and the advanced-boundary around it
 - the public support, privacy, and security posture
-- maintainer-facing GitHub and release notes where needed
 
 ## Secondary Guides
 
 - [App from Xcode](./app-from-xcode.md)
 - [Xcode Troubleshooting](./xcode-troubleshooting.md)
 - [Architecture](./architecture.md)
+
+## Maintainer Guides
+
 - [Release Maintainers](./release-maintainers.md)
 - [GitHub Repo Settings](./github-repo-settings.md)

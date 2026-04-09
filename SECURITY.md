@@ -1,18 +1,16 @@
 # Security Policy
 
-## Privacy and Data Model
-
 Valar runs locally on Apple Silicon. Audio, text, model execution, and project data stay on-device unless you explicitly download models from an upstream host or connect Valar to another tool.
 
-Core security posture:
+## Default Security Posture
 
 - synthesis, transcription, and alignment run locally
 - the daemon binds to loopback by default
 - there is no telemetry or analytics pipeline in the repo
 - model downloads are user-initiated and fetched over HTTPS
-- the public repo should keep both the public audit and tracked-file secret scan green in CI
+- the public MCP bridge depends on the same local loopback daemon rather than a hosted inference service
 
-## Reporting a Vulnerability
+## Reporting A Vulnerability
 
 If you discover a security issue in Valar, report it privately rather than opening a public issue with exploit details.
 
@@ -21,7 +19,7 @@ Preferred path:
 - use GitHub Security Advisories on the public `Valar` repo
 - do not publish exploit details in public issues while the report is untriaged
 
-Release requirement for the public repo:
+Before public intake is opened widely, maintainers should ensure:
 
 - do not open the public repo to outside contributions until GitHub Security Advisories are enabled
 - treat that advisory flow as the supported disclosure channel in the first public release
@@ -34,7 +32,7 @@ Please include:
 - expected impact
 - the commit or release you tested
 
-## Public Scope
+## Repo Scope
 
 This public repo focuses on:
 
