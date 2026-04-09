@@ -1,5 +1,5 @@
 import Foundation
-import AVFoundation
+@preconcurrency import AVFoundation
 import Combine
 
 @MainActor
@@ -32,10 +32,6 @@ public class AudioPlayer: NSObject, ObservableObject {
 
     public override init() {
         super.init()
-    }
-
-    @MainActor deinit {
-        stop()
     }
 
     // MARK: - Playback Control
@@ -389,18 +385,22 @@ public class AudioPlayer: NSObject, ObservableObject {
 @available(*, deprecated, renamed: "AudioPlayer", message: "Use AudioPlayer instead.")
 public typealias AudioPlayerManager = AudioPlayer
 
-extension AudioPlayer: @MainActor AVAudioPlayerDelegate {
-    public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        isPlaying = false
-        setSpeaking(false)
-        stopTimer()
-        currentTime = 0
+extension AudioPlayer: AVAudioPlayerDelegate {
+    nonisolated public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        Task { @MainActor [weak self] in
+            self?.isPlaying = false
+            self?.setSpeaking(false)
+            self?.stopTimer()
+            self?.currentTime = 0
+        }
     }
 
-    public func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+    nonisolated public func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
         print("Audio decode error: \(error?.localizedDescription ?? "unknown")")
-        isPlaying = false
-        setSpeaking(false)
-        stopTimer()
+        Task { @MainActor [weak self] in
+            self?.isPlaying = false
+            self?.setSpeaking(false)
+            self?.stopTimer()
+        }
     }
 }
