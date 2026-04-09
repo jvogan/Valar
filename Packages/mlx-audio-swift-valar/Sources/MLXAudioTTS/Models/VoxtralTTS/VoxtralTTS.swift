@@ -366,13 +366,15 @@ public final class VoxtralTTSModel: Module, SpeechGenerationModel, @unchecked Se
         let voice = voice
         let refText = refText
         let generationParameters = generationParameters
-        nonisolated(unsafe) let refAudio = refAudio
         let resolvedStreamingInterval = VoxtralTTSStreamingStrategy.resolveInterval(
             from: generationParameters,
             fallback: streamingInterval
         )
-        let model = self
-        let task = Task.detached {
+        let task = Task { @Sendable [weak self, continuation] in
+            guard let self else {
+                continuation.finish()
+                return
+            }
             do {
                 let regularChunkFrames = VoxtralTTSStreamingStrategy.regularChunkFrames(
                     for: resolvedStreamingInterval
@@ -384,7 +386,7 @@ public final class VoxtralTTSModel: Module, SpeechGenerationModel, @unchecked Se
 
                 func emitPendingChunk(upTo frameCount: Int) {
                     guard frameCount > emittedFrameCount else { return }
-                    let chunk = model.decodeStreamingChunk(
+                    let chunk = self.decodeStreamingChunk(
                         from: streamedFrames,
                         emittedRange: emittedFrameCount ..< frameCount,
                         leftContextFrames: VoxtralTTSStreamingStrategy.leftContextFrames
@@ -394,7 +396,7 @@ public final class VoxtralTTSModel: Module, SpeechGenerationModel, @unchecked Se
                     continuation.yield(.audio(chunk))
                 }
 
-                _ = try model.generateFrames(
+                _ = try self.generateFrames(
                     text: text,
                     voice: voice,
                     refAudio: refAudio,
@@ -437,11 +439,13 @@ public final class VoxtralTTSModel: Module, SpeechGenerationModel, @unchecked Se
         let voice = voice
         let refText = refText
         let generationParameters = generationParameters
-        nonisolated(unsafe) let refAudio = refAudio
-        let model = self
-        let codeTask = Task.detached {
+        let codeTask = Task { @Sendable [weak self, continuation] in
+            guard let self else {
+                continuation.finish()
+                return
+            }
             do {
-                _ = try model.generateFrames(
+                _ = try self.generateFrames(
                     text: text,
                     voice: voice,
                     refAudio: refAudio,
