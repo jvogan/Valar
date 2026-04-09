@@ -102,14 +102,14 @@ public final class Qwen3TTSModel: Module, ConditionedSpeechGenerationModel, @unc
         let prefixTokenCount: Int
     }
 
-    public struct PreparedStableNarratorPromptPhase {
+    public struct PreparedStableNarratorPromptPhase: @unchecked Sendable {
         let prefixCache: PreparedTalkerPrefixCache
         let speakerEmbedding: MLXArray?
         let preparedClonePrompt: PreparedVoiceClonePromptContext?
         let language: String
     }
 
-    public struct PreparedStableNarratorPromptPhases {
+    public struct PreparedStableNarratorPromptPhases: @unchecked Sendable {
         public let anchor: PreparedStableNarratorPromptPhase
         public let continuation: PreparedStableNarratorPromptPhase?
     }
