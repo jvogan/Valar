@@ -9,8 +9,10 @@ Use this repo as the public-facing source tree for Valar. Keep the onboarding pa
 3. [docs/working-models.md](./docs/working-models.md)
 4. [docs/model-quickstart.md](./docs/model-quickstart.md)
 5. [docs/integrations.md](./docs/integrations.md)
-6. [docs/lineage-upstream-references.md](./docs/lineage-upstream-references.md)
-7. [SUPPORT.md](./SUPPORT.md)
+6. [docs/faq.md](./docs/faq.md)
+7. [docs/use-cases.md](./docs/use-cases.md)
+8. [docs/lineage-upstream-references.md](./docs/lineage-upstream-references.md)
+9. [SUPPORT.md](./SUPPORT.md)
 
 ## Working Rule
 
@@ -44,7 +46,7 @@ Use this repo as the public-facing source tree for Valar. Keep the onboarding pa
 ## Public Safety
 
 - Do not use private machine paths, SSD-only paths, or local operator instructions in public docs.
-- Do not reference internal archive workflows, launchd helpers, or local-only service wrappers.
+- Do not reference internal archive workflows or local-only background-service wrappers.
 - Do not teach experimental or parity-only families as part of the public beginner path.
 - Do not invent model IDs. Use the IDs from the working-models page.
 - Treat Voxtral as opt-in and non-commercial.

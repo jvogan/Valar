@@ -8,7 +8,7 @@ Valar is a local speech stack for macOS and Apple Silicon. This document describ
 - synthesis, transcription, and alignment run locally
 - model downloads happen only when the user explicitly installs a model
 - the daemon listens on loopback by default
-- the public repo does not ship private launchd helpers or workstation-specific background-service setup
+- the public repo does not install background services for you by default
 
 ## Local Data
 
@@ -19,7 +19,7 @@ Valar stores local state on your Mac for things like:
 - project or document state
 - generated outputs that you choose to write to disk
 
-Saved voice material and other local state remain on your machine unless you export, sync, or share those files yourself.
+Saved voice material and other local state remain on your machine unless you choose to export or share those files yourself.
 
 If you use the public MCP bridge in `bridge/`, you may choose to read or write local media under `~/Library/Application Support/Valar/bridge-storage`. The public bridge does not persist channel identifiers, sender metadata, or transcript/reply sidecars by default. Override this location with `VALARTTS_BRIDGE_STORAGE_ROOT` if needed.
 

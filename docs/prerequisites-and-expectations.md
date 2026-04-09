@@ -23,7 +23,7 @@ xcodebuild -runFirstLaunch
 
 ## Fastest Working Path
 
-The public repo is intentionally source-first and CLI-first:
+Valar is intentionally source-first and CLI-first:
 
 ```bash
 make quickstart
@@ -37,7 +37,7 @@ That path:
 3. builds `mlx.metallib`
 4. runs `valartts doctor`
 5. installs `Soprano`
-6. writes a first WAV clip to `/tmp/valar-first-clip.wav`
+6. writes a first WAV clip under your macOS temp directory, usually at `$TMPDIR/valar-first-clip.wav`
 
 If you already use another local Valar checkout on the same Mac, isolate this repo while testing:
 
@@ -45,9 +45,9 @@ If you already use another local Valar checkout on the same Mac, isolate this re
 export VALARTTS_HOME="$PWD/.valartts-public-home"
 ```
 
-## Blessed Public Families
+## What Works Today
 
-The beginner path is intentionally narrow.
+The public v1 working set is intentionally narrow.
 
 | Family | Public posture | Rough local footprint | Best first use |
 | --- | --- | --- | --- |
@@ -56,7 +56,7 @@ The beginner path is intentionally narrow.
 | `VibeVoice` | Compatibility preview | About `700 MB` | Preset-voice realtime TTS, English-first |
 | `Voxtral` | Preview, explicit non-commercial opt-in | About `2.4 GB` | Optional preset-voice multilingual lane |
 
-Footprint values are rough public planning numbers and can drift as upstream packs change.
+Footprint values are rough planning numbers and can drift as upstream packs change.
 
 ## What To Install First
 
@@ -68,7 +68,7 @@ Footprint values are rough public planning numbers and can drift as upstream pac
 
 ## Bridge And App Expectations
 
-- The public MCP bridge is included, but it is an advanced path and requires Bun.
+- The MCP bridge is included, but it is an advanced path and requires Bun.
 - The macOS app source is included, but it is not the first-run path.
 - Get the CLI working first, then move to the app from Xcode if needed: [App from Xcode](./app-from-xcode.md)
 

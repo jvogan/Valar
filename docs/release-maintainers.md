@@ -20,6 +20,7 @@ Do not publish the canonical private history directly.
    - `make audit-public`
    - `make validate-native`
    - `make validate-bridge` when `bridge/` changed
+   - `python3 tools/generate_launch_media.py` when launch-facing visuals need refresh
 4. Run a private-side history scan as an advisory first-publication check for the canonical source history.
 5. Verify the public repo worktree is clean:
    - no `bridge/node_modules`

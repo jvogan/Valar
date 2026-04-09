@@ -1,0 +1,38 @@
+name: Feature request
+description: Suggest an improvement for the public Valar repo.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to do, and what is missing today?
+      placeholder: I want Valar to...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the behavior, API, workflow, or doc improvement you want.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Models
+        - CLI
+        - Daemon
+        - MCP bridge
+        - macOS app source
+        - Docs
+        - Build or setup
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional. What workarounds or other approaches did you try?

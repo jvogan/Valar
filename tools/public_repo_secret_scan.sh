@@ -75,6 +75,7 @@ trap cleanup EXIT
 
 while IFS= read -r rel; do
   [[ -n "$rel" ]] || continue
+  [[ -f "$SCAN_ROOT/$rel" ]] || continue
   case "$rel" in
     tools/public_repo_audit.sh|tools/public_repo_rules.sh|tools/public_repo_secret_scan.sh)
       continue

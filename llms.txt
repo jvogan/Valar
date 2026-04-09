@@ -1,0 +1,16 @@
+# Valar
+
+Valar is a local speech stack for Apple Silicon with a CLI, a loopback daemon, and an MCP bridge.
+
+Start here:
+- README.md
+- docs/prerequisites-and-expectations.md
+- docs/working-models.md
+- docs/model-quickstart.md
+
+Useful follow-up docs:
+- docs/faq.md
+- docs/use-cases.md
+- docs/integrations.md
+- SECURITY.md
+- PRIVACY.md

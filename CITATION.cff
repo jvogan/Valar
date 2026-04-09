@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+title: Valar
+message: If you use Valar in research, tooling, or derived work, please cite the project and the relevant upstream model cards.
+type: software
+authors:
+  - family-names: Vogan
+    given-names: Jacob
+license: MIT
+abstract: Local speech stack for Apple Silicon: TTS, ASR, forced alignment, voices, daemon, and MCP bridge.
+keywords:
+  - text-to-speech
+  - speech-to-text
+  - forced-alignment
+  - apple-silicon
+  - macos
+  - swift
+  - mlx
+  - mcp
+  - local-ai
+  - speech-synthesis
+  - asr
+  - voice-cloning

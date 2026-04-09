@@ -1,31 +1,22 @@
 # Valar
 
-Valar is a local speech stack for macOS and Apple Silicon.
+[![License: MIT](https://img.shields.io/badge/license-MIT-0f766e.svg)](./LICENSE)
+![Platform: macOS Apple Silicon](https://img.shields.io/badge/platform-macOS%20Apple%20Silicon-111827.svg)
+![Native Validation](https://img.shields.io/badge/native%20validation-macOS%2015-1d4ed8.svg)
+![Security Checks](https://img.shields.io/badge/security-audit%20%2B%20secrets-7c3aed.svg)
 
-This repo is the public, MIT-licensed source tree for Valar. The fastest path for new users and agents is **CLI + daemon first**. The macOS app source stays in the repo, but it is not the primary onboarding path.
+![Valar hero](./assets/media/hero.png)
 
-If you already use another local Valar checkout on the same Mac, isolate this public repo while testing by setting `VALARTTS_HOME` to a clean directory before running `valartts`.
+Local speech stack for Apple Silicon: TTS, ASR, forced alignment, voices, daemon, and MCP bridge.
 
-## Start Here
+Valar runs locally on macOS with a CLI, a loopback daemon, and an MCP bridge for agents. The fastest path is still CLI first. Once that works, you can add the local HTTP daemon, the MCP bridge, or the macOS app source.
 
-1. Read [docs/prerequisites-and-expectations.md](./docs/prerequisites-and-expectations.md).
-2. Run `make quickstart`.
-3. Run `make first-clip`.
-4. Read [docs/working-models.md](./docs/working-models.md) for the exact supported public model IDs.
-5. Read [docs/model-quickstart.md](./docs/model-quickstart.md) for copy-paste install and first-run commands.
-6. Read [docs/integrations.md](./docs/integrations.md) if you want MCP or advanced integrations.
-7. Read [docs/lineage-upstream-references.md](./docs/lineage-upstream-references.md) for repo lineage and upstream references.
+## What Valar Does
 
-## Blessed Public Families
-
-The newcomer path is intentionally narrow:
-
-- `Soprano`: smallest and easiest first clip
-- `Qwen`: main TTS, ASR, and forced-alignment lane
-- `VibeVoice`: compatibility preview, preset-only, English-first
-- `Voxtral`: optional non-commercial preset-voice lane
-
-Other model families may be promoted later, but they are not part of the initial public beginner path.
+- Generate speech locally with small and large Apple Silicon-friendly model families
+- Transcribe audio and produce alignment timestamps without a cloud inference backend
+- Create and reuse voices through the CLI, daemon, and app surfaces
+- Expose a localhost daemon and MCP bridge for agent and automation workflows
 
 ## Quick Start
 
@@ -34,7 +25,7 @@ make quickstart
 make first-clip
 ```
 
-That writes a starter WAV to `/tmp/valar-first-clip.wav` by default. Override it with `VALAR_FIRST_CLIP_OUTPUT=/absolute/path.wav`.
+That writes a starter WAV under your macOS temp directory by default, usually at `$TMPDIR/valar-first-clip.wav`. Override it with `VALAR_FIRST_CLIP_OUTPUT=/absolute/path.wav`.
 
 If `make quickstart` reports a missing Metal toolchain, fix Xcode first:
 
@@ -43,60 +34,65 @@ xcodebuild -downloadComponent MetalToolchain
 xcodebuild -runFirstLaunch
 ```
 
-If you already have `mlx.metallib` from another MLX checkout or Python install, you can reuse it instead of rebuilding:
+If you already use another Valar checkout on the same Mac, isolate this repo while testing:
 
 ```bash
-VALARTTS_METALLIB_FALLBACK_PATH=/absolute/path/to/mlx.metallib bash scripts/build_metallib.sh
+export VALARTTS_HOME="$PWD/.valartts-public-home"
 ```
 
-To start the local daemon:
+## Choose Your Model
 
-```bash
-make build-daemon
-make build-metallib
-swift run --package-path apps/ValarDaemon valarttsd
-```
+| Goal | Start with | Why |
+| --- | --- | --- |
+| Prove your machine works | `Soprano` | Smallest, fastest first clip |
+| Main narration / stable speech | `Qwen Base` | Primary supported TTS lane |
+| Voice design and saved speakers | `Qwen VoiceDesign` | Text-driven voice creation that stays inside the main Qwen family |
+| Transcription or timestamps | `Qwen ASR` / `Qwen ForcedAligner` | Main supported ASR and alignment lane |
+| Fast preset voices | `VibeVoice` | Preview-only preset voice lane, English-first |
+| Multilingual preset voices with extra license limits | `Voxtral` | Explicit non-commercial opt-in only |
 
-If `valartts` is already on your `PATH`, replace `swift run --package-path apps/ValarCLI valartts ...` with `valartts ...`.
+See [docs/working-models.md](./docs/working-models.md) for exact install IDs, support posture, footprint, and license notes.
 
-For a broader public smoke test, use `make validate-live-blessed`. That adds Qwen and VibeVoice to the live check, and includes Voxtral too if you enable `VALARTTS_ENABLE_NONCOMMERCIAL_MODELS=1`.
+## Agent And MCP Workflow
 
-For the full public pre-push path, including the Bun bridge typecheck:
+Once the local CLI path works, the next public integration step is the MCP bridge:
 
-```bash
-make bootstrap-bridge
-make validate-bridge
-```
+1. Start the daemon: `swift run --package-path apps/ValarDaemon valarttsd`
+2. Install bridge dependencies: `make bootstrap-bridge`
+3. Start the bridge: `cd bridge && bun server.ts`
+4. Point your MCP-capable client or agent at the local bridge
+
+The bridge is optional. Bun is only required if you want MCP or advanced automation.
+
+<p>
+  <img alt="Valar CLI and MCP preview" src="./assets/media/cli-mcp-preview.png" width="49%" />
+  <img alt="Valar app preview" src="./assets/media/app-preview.png" width="49%" />
+</p>
+
+## App Source
 
 The macOS app source is included, but it is intentionally a secondary path. Build it from Xcode after the CLI path works:
 
 - [docs/app-from-xcode.md](./docs/app-from-xcode.md)
 - [docs/xcode-troubleshooting.md](./docs/xcode-troubleshooting.md)
 
-## Support And Contributions
+## Learn More
+
+- [docs/prerequisites-and-expectations.md](./docs/prerequisites-and-expectations.md)
+- [docs/working-models.md](./docs/working-models.md)
+- [docs/model-quickstart.md](./docs/model-quickstart.md)
+- [docs/faq.md](./docs/faq.md)
+- [docs/use-cases.md](./docs/use-cases.md)
+- [docs/integrations.md](./docs/integrations.md)
+- [docs/lineage-upstream-references.md](./docs/lineage-upstream-references.md)
+
+## Support, Security, And License
 
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [SUPPORT.md](./SUPPORT.md)
 - [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md)
 - [SECURITY.md](./SECURITY.md)
 - [PRIVACY.md](./PRIVACY.md)
+- [LICENSE](./LICENSE)
 
-## License Boundary
-
-- Repo code: MIT
-- Model weights: model-specific upstream licenses
-- Non-commercial models are opt-in and clearly labeled
-
-## Public Scope
-
-- CLI + daemon are the default onboarding path
-- macOS app source is included, but not required for first success
-- integrations are available behind an advanced boundary and require Bun only if you opt into the MCP bridge
-- no private machine paths, personal automation, or workstation-specific operator flows are part of this repo
-
-## Maintainers
-
-This public repo is maintained from a canonical source tree and exported with fresh public history. The maintainer flow is documented here:
-
-- [docs/release-maintainers.md](./docs/release-maintainers.md)
-- [docs/github-repo-settings.md](./docs/github-repo-settings.md)
+Repo code is MIT. Model weights keep their own upstream licenses.

@@ -1,17 +1,17 @@
 # Working Models
 
-This page lists the working public families that should be easy for newcomers and agents to install and use right away.
+This page lists the working model families that should be easy for newcomers and agents to install and use right away.
 
-The public newcomer path is intentionally narrow:
+The v1 working set is intentionally narrow:
 
 - `Soprano` for the easiest first run
 - `Qwen` for the main TTS, ASR, and alignment lane
 - `VibeVoice` for compatibility-preview preset voices
 - `Voxtral` for explicit non-commercial opt-in
 
-## Blessed Models
+## Working Models
 
-Only the exact IDs below are part of the public beginner path.
+Only the exact IDs below are part of the main public onboarding path.
 
 | Family | Exact install ID | Support status | Download posture | Rough local footprint | License | Best use |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -39,7 +39,7 @@ The CLI and daemon expose these public compatibility fields directly:
 - `Soprano` is the shortest path to a working first clip.
 - In this source-first repo, `bundledFirstRun` means “recommended first install” rather than “weights are checked into git.”
 - `Qwen` is the main supported product lane for high-quality speech, transcription, and alignment.
-- `VibeVoice` is preset-only and should be described as compatibility preview, not parity.
+- `VibeVoice` is preset-only and should be described as preview, not parity.
 - `VibeVoice` language contract is English-supported, `de/es/fr/it/ja/ko/nl/pl/pt` preview, and Hindi hidden from release-facing defaults.
 - `VibeVoice` reuses the upstream `Qwen/Qwen2.5-0.5B` tokenizer; `valartts models install` materializes that companion automatically when needed.
 - `Voxtral` is hidden by default unless the user intentionally opts in to non-commercial models with `VALARTTS_ENABLE_NONCOMMERCIAL_MODELS=1`.

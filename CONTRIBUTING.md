@@ -37,7 +37,7 @@ For the public release gates:
 make audit-public
 ```
 
-Maintainers currently port accepted public changes back into the canonical source tree before the next export/sync. See [docs/release-maintainers.md](./docs/release-maintainers.md).
+Maintainers currently port accepted public changes back into the maintained source flow before the next public sync. See [docs/release-maintainers.md](./docs/release-maintainers.md).
 Use [SUPPORT.md](./SUPPORT.md) for routine help channels and [SECURITY.md](./SECURITY.md) for vulnerability reporting.
 
 ## Public Scope
@@ -55,7 +55,7 @@ Do not expand newcomer docs or agent guidance to experimental families unless th
 
 - Keep PRs focused on one concern.
 - Keep docs aligned with the actual CLI surface.
-- Do not add private workstation paths, launchd helpers, SSD-only paths, or local operator playbooks to the public repo.
+- Do not add personal machine paths, background-service wrappers, SSD-only paths, or local operator playbooks to the public repo.
 - Keep model-license language explicit: repo code is MIT, model weights keep their upstream licenses.
 - Treat Voxtral as explicit non-commercial opt-in.
 - Treat VibeVoice as preset-only compatibility preview, not the default narrator lane.

@@ -31,6 +31,8 @@ DEFAULT_OUTPUT_DIRS=(
   "$REPO_ROOT/Packages/mlx-audio-swift-valar/.build/arm64-apple-macosx/debug"
 )
 FALLBACK_METALLIB_CANDIDATES=(
+  "$HOME/Library/Application Support/Valar/Runtime/current/mlx.metallib"
+  "$HOME/Library/Application Support/ValarTTS/Runtime/current/mlx.metallib"
   "$REPO_ROOT/.venv/lib/python3.10/site-packages/mlx/lib/mlx.metallib"
   "$REPO_ROOT/.build-cache/arm64-apple-macosx/debug/mlx.metallib"
   "$REPO_ROOT/.build-stable/mlx.metallib"

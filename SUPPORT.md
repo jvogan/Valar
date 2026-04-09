@@ -37,4 +37,4 @@ make validate-bridge
 - the command you ran
 - the relevant CLI or daemon output
 
-Keep reports focused on the public repo surface. Do not post private workstation paths, secrets, or unrelated local automation details.
+Keep reports focused on the public repo surface. Redact secrets and personal file paths before posting logs.

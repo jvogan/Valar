@@ -20,7 +20,7 @@ Brief description of what this PR changes and why.
 
 ## Checklist
 
-- [ ] No private workstation paths, launchd helpers, or operator-only docs were introduced
+- [ ] No personal machine paths, local-only service wrappers, or operator-only docs were introduced
 - [ ] Model IDs and support-tier language match the public docs
 - [ ] New public security or maintainer guidance stays aligned with the current workflow
 - [ ] New tests were added for non-trivial behavior changes

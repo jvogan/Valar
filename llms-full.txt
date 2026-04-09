@@ -1,0 +1,42 @@
+# Valar
+
+Valar is a local speech stack for Apple Silicon: TTS, ASR, forced alignment, voices, daemon, and MCP bridge.
+
+Primary docs:
+- README.md
+- docs/prerequisites-and-expectations.md
+- docs/working-models.md
+- docs/model-quickstart.md
+- docs/faq.md
+- docs/use-cases.md
+- docs/integrations.md
+- docs/architecture.md
+- docs/lineage-upstream-references.md
+
+Public support and policy docs:
+- SUPPORT.md
+- SECURITY.md
+- PRIVACY.md
+- CONTRIBUTING.md
+- CODE_OF_CONDUCT.md
+
+Stable public interfaces:
+- make quickstart
+- make first-clip
+- valartts doctor
+- valartts models list
+- valartts models info
+- valartts models install
+- valartts speak
+- valartts transcribe
+- valartts align
+- /v1/health
+- /v1/capabilities
+- /v1/models
+- /v1/runtime
+
+Public model families:
+- Soprano
+- Qwen
+- VibeVoice
+- Voxtral

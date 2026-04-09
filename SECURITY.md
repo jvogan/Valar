@@ -2,13 +2,13 @@
 
 ## Privacy and Data Model
 
-Valar runs locally on Apple Silicon. Audio, text, model execution, and project data stay on-device unless you explicitly download models from an upstream host or wire Valar into an external integration.
+Valar runs locally on Apple Silicon. Audio, text, model execution, and project data stay on-device unless you explicitly download models from an upstream host or connect Valar to another tool.
 
 Core security posture:
 
 - synthesis, transcription, and alignment run locally
 - the daemon binds to loopback by default
-- there is no telemetry or analytics pipeline in the public source tree
+- there is no telemetry or analytics pipeline in the repo
 - model downloads are user-initiated and fetched over HTTPS
 - the public repo should keep both the public audit and tracked-file secret scan green in CI
 
@@ -23,7 +23,7 @@ Preferred path:
 
 Release requirement for the public repo:
 
-- do not publish `Valar` until GitHub Security Advisories are enabled for the repo
+- do not open the public repo to outside contributions until GitHub Security Advisories are enabled
 - treat that advisory flow as the supported disclosure channel in the first public release
 - enable secret scanning and push protection before accepting public contributions
 
@@ -44,4 +44,4 @@ This public repo focuses on:
 - `Packages/*`
 - the public MCP bridge under `bridge/`
 
-Advanced integrations are included as source, but they are not the primary onboarding path.
+Advanced integrations are included as source, but they are not the default onboarding path.

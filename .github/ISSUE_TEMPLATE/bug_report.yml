@@ -1,0 +1,74 @@
+name: Bug report
+description: Report a reproducible problem in the public Valar repo.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for filing a bug. Please redact private file paths, tokens, and personal data before posting logs.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What broke, and what did you expect instead?
+      placeholder: A short summary of the bug.
+    validations:
+      required: true
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      description: Which Valar surface is affected?
+      options:
+        - CLI
+        - Daemon
+        - MCP bridge
+        - macOS app source
+        - Docs
+        - Build or setup
+    validations:
+      required: true
+  - type: input
+    id: model
+    attributes:
+      label: Model ID
+      description: If this bug is model-specific, list the exact model ID.
+      placeholder: mlx-community/Soprano-1.1-80M-bf16
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: macOS 15.4
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Mac hardware
+      placeholder: MacBook Pro M4 Pro
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+      description: Include the exact commands if possible.
+      placeholder: |
+        1. make quickstart
+        2. make first-clip
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or output
+      description: Paste the relevant error output. Redact secrets and personal paths first.
+      render: shell
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context
+      description: Anything else that helps narrow the issue.

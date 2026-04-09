@@ -13,7 +13,7 @@ make quickstart
 make first-clip
 ```
 
-That writes `/tmp/valar-first-clip.wav` by default. Override it with `VALAR_FIRST_CLIP_OUTPUT=/absolute/path.wav`.
+That writes a WAV under your macOS temp directory by default, usually at `$TMPDIR/valar-first-clip.wav`. Override it with `VALAR_FIRST_CLIP_OUTPUT=/absolute/path.wav`.
 
 ## Native Prerequisites
 
@@ -146,7 +146,7 @@ swift run --package-path apps/ValarCLI valartts align \
   --output /tmp/alignment.json
 ```
 
-## VibeVoice: Compatibility Preview
+## VibeVoice: Preview Preset Voices
 
 ```bash
 swift run --package-path apps/ValarCLI valartts models install mlx-community/VibeVoice-Realtime-0.5B-4bit --allow-download
@@ -158,7 +158,7 @@ swift run --package-path apps/ValarCLI valartts speak \
   --output /tmp/vibevoice.wav
 ```
 
-VibeVoice should be presented as preset-only, English-first, and compatibility-preview. It is not the default narrator lane.
+VibeVoice should be presented as preset-only, English-first, and preview-only. It is not the default narrator lane.
 During install, Valar materializes the companion tokenizer from `Qwen/Qwen2.5-0.5B` automatically when the MLX VibeVoice pack does not ship it directly.
 
 ## Voxtral: Explicit Non-Commercial Opt-In

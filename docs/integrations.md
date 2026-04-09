@@ -2,14 +2,15 @@
 
 Valar keeps the public integration story simple:
 
-- **Core integration**: a local MCP bridge in `bridge/`
-- **Advanced channel adapters**: intentionally deferred from the public v1 export until they are generalized away from private operator assumptions
+- **Default path**: CLI first
+- **Local API path**: daemon second
+- **Agent path**: MCP bridge third
 
-The beginner path does not require any integration layer. Start with the CLI and daemon first.
+The beginner path does not require any integration layer. Get the CLI and daemon working first.
 
-## Core MCP Bridge
+## MCP Bridge
 
-The Bun bridge in `bridge/` exposes the local daemon as MCP tools. It is the primary public integration surface for agents and local automation.
+The Bun bridge in `bridge/` exposes the local daemon as MCP tools. It is the main public integration surface for local agents and automation.
 
 Bridge prerequisites:
 
@@ -26,23 +27,15 @@ Typical flow:
 
 The bridge assumes the daemon is available on `http://127.0.0.1:8787` unless `VALAR_DAEMON_URL` is set explicitly to another loopback address.
 
-Bridge-safe I/O directories default to `~/Library/Application Support/Valar/bridge-storage`. The public bridge does not archive channel identifiers, sender metadata, or transcription/reply sidecars by default. Override the storage root with `VALARTTS_BRIDGE_STORAGE_ROOT` if you need a different local location.
+Bridge storage defaults to `~/Library/Application Support/Valar/bridge-storage`. Override it with `VALARTTS_BRIDGE_STORAGE_ROOT` if you want a different local directory.
 
-## Advanced Channel Adapters
+## When To Use Which Surface
 
-Public `Valar` v1 keeps the bridge surface generic. Channel-specific adapters are not part of the exported newcomer path yet.
+- Use the **CLI** for the fastest first success and simple scripts
+- Use the **daemon** when you want a local HTTP API
+- Use the **MCP bridge** when you want an agent or tool-calling workflow
+- Use the **app** when the CLI path already works and you want a desktop UI
 
-If you need Discord, Telegram, or other channel delivery:
+## Advanced Add-Ons
 
-- start from the MCP bridge first
-- keep channel configuration entirely environment-driven
-- treat any channel adapter as a separate advanced add-on, not part of the core quickstart
-- do not assume personal state directories, pair/allowlist files, or workstation-specific service wrappers
-
-## Public Safety Boundary
-
-Public docs should teach:
-
-- CLI + daemon first
-- MCP bridge second
-- channel adapters only after the core local stack is already working
+Channel-specific delivery adapters are intentionally outside the main public quickstart. Start from the MCP bridge first, then layer any additional automation on top of that local foundation.
