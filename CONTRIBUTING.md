@@ -17,7 +17,7 @@ For the default native path:
 brew install jq ripgrep
 make quickstart
 make first-clip
-make validate-native
+make validate-public
 ```
 
 If you are working on the MCP bridge too:
@@ -25,19 +25,19 @@ If you are working on the MCP bridge too:
 ```bash
 brew install jq ripgrep
 make bootstrap-bridge
-make validate-bridge
+make validate-public
 ```
 
-`validate-native` is the baseline public pre-push check. `validate-bridge` adds Bun-backed bridge validation on top of the native Swift checks.
+`validate-public` is the baseline public pre-push check and matches the main GitHub validation job name. `validate-native` remains available when you want the Swift-only path without bridge typechecking. `validate-bridge` runs the same bridge-aware validation directly.
 `validate-live` adds an isolated first-run smoke test, and `validate-live-blessed` extends that to `Qwen` and `VibeVoice`.
 
 For the public release gates:
 
 ```bash
-make audit-public
+make audit-and-secret-scan
 ```
 
-Maintainers currently port accepted public changes back into the maintained source flow before the next public sync. See [docs/release-maintainers.md](./docs/release-maintainers.md).
+Maintainers currently port accepted public changes back through the release-maintainer flow before the next public sync. See [docs/release-maintainers.md](./docs/release-maintainers.md).
 Use [SUPPORT.md](./SUPPORT.md) for routine help channels and [SECURITY.md](./SECURITY.md) for vulnerability reporting.
 
 ## Public Scope

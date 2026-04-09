@@ -41,7 +41,7 @@ Use this repo as the public-facing source tree for Valar. Keep the onboarding pa
 - Transcribe audio with `swift run --package-path apps/ValarCLI valartts transcribe`.
 - Align a transcript with `swift run --package-path apps/ValarCLI valartts align`.
 - Run public validation with `bash tools/validate.sh`, `bash tools/validate.sh --live` for an opt-in Soprano smoke test, or `bash tools/validate.sh --live-blessed` for the broader blessed-model smoke path.
-- Prefer `make validate-native`, `make validate-live`, and `make validate-live-blessed` when giving a newcomer or another agent a broader verification command.
+- Prefer `make validate-public`, `make validate-live`, and `make validate-live-blessed` when giving a newcomer or another agent a broader verification command.
 
 ## Public Safety
 

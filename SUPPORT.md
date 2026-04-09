@@ -20,7 +20,7 @@ If you are working on the MCP bridge too:
 
 ```bash
 make bootstrap-bridge
-make validate-bridge
+make validate-public
 ```
 
 ## Where To Ask

@@ -61,7 +61,7 @@ Use `assets/media/social-preview.png` as the social preview image when the GitHu
 - keep blank issues disabled
 - keep the security contact link pointed at the repo advisory form
 - keep `SUPPORT.md`, `SECURITY.md`, and issue templates aligned
-- make sure the PR template still references `make audit-public`
+- make sure the PR template still references `make audit-and-secret-scan` and `make validate-public`
 - leave funding links disabled until there is a real public funding handle
 
 ## Release Boundary

@@ -9,8 +9,8 @@ Brief description of what this PR changes and why.
 
 ## Test Plan
 
-- [ ] Ran `make audit-public`
-- [ ] Ran `make validate-native`
+- [ ] Ran `make audit-and-secret-scan`
+- [ ] Ran `make validate-public`
 - [ ] Exercised the affected public workflow
 - [ ] Updated public docs or agent guidance when the user-facing surface changed
 

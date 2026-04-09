@@ -5,6 +5,7 @@ SHELL := /bin/bash
 	first-clip \
 	bootstrap-native \
 	bootstrap-bridge \
+	validate-public \
 	validate-native \
 	validate-bridge \
 	validate-live \
@@ -12,6 +13,7 @@ SHELL := /bin/bash
 	validate-bridge-live \
 	validate-bridge-live-blessed \
 	audit-public \
+	audit-and-secret-scan \
 	audit-secrets-public \
 	build-cli \
 	build-daemon \
@@ -28,6 +30,9 @@ bootstrap-native:
 
 bootstrap-bridge:
 	bash ./tools/bootstrap.sh native --with-bridge
+
+validate-public:
+	bash ./tools/validate.sh --with-bridge
 
 validate-native:
 	bash ./tools/validate.sh
@@ -48,6 +53,10 @@ validate-bridge-live-blessed:
 	bash ./tools/validate.sh --with-bridge --live-blessed
 
 audit-public:
+	bash ./tools/public_repo_audit.sh
+	bash ./tools/public_repo_secret_scan.sh
+
+audit-and-secret-scan:
 	bash ./tools/public_repo_audit.sh
 	bash ./tools/public_repo_secret_scan.sh
 

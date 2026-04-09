@@ -17,8 +17,8 @@ Do not publish the canonical private history directly.
 1. Land the intended change in the canonical source tree.
 2. Regenerate or sync the public `Valar` tree from that canonical source.
 3. Run the public release gates in the public tree:
-   - `make audit-public`
-   - `make validate-native`
+   - `make audit-and-secret-scan`
+   - `make validate-public`
    - `make validate-bridge` when `bridge/` changed
    - `python3 tools/generate_launch_media.py` when launch-facing visuals need refresh
 4. Run a private-side history scan as an advisory first-publication check for the canonical source history.

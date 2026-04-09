@@ -78,7 +78,7 @@ swift run --package-path apps/ValarCLI valartts models install mlx-community/Sop
 swift run --package-path apps/ValarCLI valartts speak \
   --model mlx-community/Soprano-1.1-80M-bf16 \
   --text "Hello from Soprano." \
-  --output /tmp/soprano.wav
+  --output "${TMPDIR:-/tmp}/soprano.wav"
 ```
 
 ## Qwen: Main Lane
@@ -90,7 +90,7 @@ swift run --package-path apps/ValarCLI valartts models install mlx-community/Qwe
 swift run --package-path apps/ValarCLI valartts speak \
   --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16 \
   --text "Hello from the Qwen main lane." \
-  --output /tmp/qwen.wav
+  --output "${TMPDIR:-/tmp}/qwen.wav"
 ```
 
 ### Qwen designed voice (text-only)
@@ -104,7 +104,7 @@ swift run --package-path apps/ValarCLI valartts voices list
 swift run --package-path apps/ValarCLI valartts speak \
   --voice <voice-uuid-from-voices-list> \
   --text "Hello from my designed Qwen voice." \
-  --output /tmp/qwen-designed.wav
+  --output "${TMPDIR:-/tmp}/qwen-designed.wav"
 ```
 
 Use the UUID printed by `voices design` or shown in `voices list`.
@@ -118,7 +118,7 @@ swift run --package-path apps/ValarCLI valartts voices list
 swift run --package-path apps/ValarCLI valartts speak \
   --voice <stable-voice-uuid-from-voices-list> \
   --text "Hello from my stable Qwen narrator voice." \
-  --output /tmp/qwen-stable.wav
+  --output "${TMPDIR:-/tmp}/qwen-stable.wav"
 ```
 
 Qwen `CustomVoice` remains the named-speaker lane, but the fastest public voice-creation path is `VoiceDesign` first and optional `stabilize` second.
@@ -132,7 +132,7 @@ swift run --package-path apps/ValarCLI valartts models install mlx-community/Qwe
 swift run --package-path apps/ValarCLI valartts transcribe \
   sample.wav \
   --model mlx-community/Qwen3-ASR-0.6B-8bit \
-  --output /tmp/transcript.txt
+  --output "${TMPDIR:-/tmp}/transcript.txt"
 ```
 
 ### Qwen alignment
@@ -141,9 +141,9 @@ swift run --package-path apps/ValarCLI valartts transcribe \
 swift run --package-path apps/ValarCLI valartts models install mlx-community/Qwen3-ForcedAligner-0.6B-8bit --allow-download
 swift run --package-path apps/ValarCLI valartts align \
   sample.wav \
-  --transcript @/tmp/transcript.txt \
+  --transcript @"${TMPDIR:-/tmp}/transcript.txt" \
   --model mlx-community/Qwen3-ForcedAligner-0.6B-8bit \
-  --output /tmp/alignment.json
+  --output "${TMPDIR:-/tmp}/alignment.json"
 ```
 
 ## VibeVoice: Preview Preset Voices
@@ -155,7 +155,7 @@ swift run --package-path apps/ValarCLI valartts speak \
   --voice random \
   --language en \
   --text "Hello from VibeVoice." \
-  --output /tmp/vibevoice.wav
+  --output "${TMPDIR:-/tmp}/vibevoice.wav"
 ```
 
 VibeVoice should be presented as preset-only, English-first, and preview-only. It is not the default narrator lane.
@@ -170,7 +170,7 @@ swift run --package-path apps/ValarCLI valartts speak \
   --model mlx-community/Voxtral-4B-TTS-2603-mlx-4bit \
   --voice emma \
   --text "Hello from Voxtral." \
-  --output /tmp/voxtral.wav
+  --output "${TMPDIR:-/tmp}/voxtral.wav"
 ```
 
 ## Daemon Checks
