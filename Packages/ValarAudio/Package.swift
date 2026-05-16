@@ -12,7 +12,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-atomics.git", from: "1.2.0"),
-        .package(url: "https://github.com/element-hq/swift-ogg", exact: "0.0.3"),
+        .package(url: "https://github.com/element-hq/swift-ogg", exact: "0.0.4"),
     ],
     targets: [
         .target(

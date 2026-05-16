@@ -1,5 +1,5 @@
 {
-  "originHash" : "82c6239e56d7775f8317480e5c5311adde10754f0afae70602cea3f7b198b64f",
+  "originHash" : "cb4c614b7ae1f16ab8d80be7776d48206ffcca67be3c186755d23ddbe6e81b49",
   "pins" : [
     {
       "identity" : "ogg-swift",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/element-hq/swift-ogg",
       "state" : {
-        "revision" : "d60d4dd3eaaa3b07eafed76420ea03b79a516a13",
-        "version" : "0.0.3"
+        "revision" : "a00a22b90f6230d2d3a75a18adef97a3603d9d28",
+        "version" : "0.0.4"
       }
     }
   ],
