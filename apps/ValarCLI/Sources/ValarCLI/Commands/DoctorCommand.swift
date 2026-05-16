@@ -16,7 +16,7 @@ struct DoctorCommand: AsyncParsableCommand {
         let runtime = try ValarRuntime()
         var issues: [String] = []
         var advisories: [String] = []
-        let daemonBaseURL = Self.daemonBaseURL()
+        let daemonBaseURL = CLILocalDaemon.baseURL()
         let modelPackAudit = try? await runtime.auditLocalModelPackState()
         let orphanedModelPackPaths = modelPackAudit?.orphanedModelPackPaths ?? []
         let daemonPIDStatus = daemonPIDStatus(paths: runtime.paths)
@@ -159,7 +159,7 @@ struct DoctorCommand: AsyncParsableCommand {
         var daemonReachable = false
         if let url = daemonBaseURL?.appendingPathComponent("v1/health") {
             do {
-                let (_, response) = try await URLSession.shared.data(from: url)
+                let (_, response) = try await CLILocalDaemon.session.data(from: url)
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 {
                     daemonReachable = true
                 }
@@ -174,7 +174,7 @@ struct DoctorCommand: AsyncParsableCommand {
 
         if daemonReachable {
             if let readyURL = daemonBaseURL?.appendingPathComponent("v1/ready") {
-                if let (readyData, readyResponse) = try? await URLSession.shared.data(from: readyURL),
+                if let (readyData, readyResponse) = try? await CLILocalDaemon.session.data(from: readyURL),
                    let httpResponse = readyResponse as? HTTPURLResponse {
                     if let dto = try? JSONDecoder().decode(DaemonReadyDTO.self, from: readyData) {
                         daemonReadyDTO = dto
@@ -189,7 +189,7 @@ struct DoctorCommand: AsyncParsableCommand {
             }
 
             if let runtimeURL = daemonBaseURL?.appendingPathComponent("v1/runtime") {
-                if let (runtimeData, runtimeResponse) = try? await URLSession.shared.data(from: runtimeURL),
+                if let (runtimeData, runtimeResponse) = try? await CLILocalDaemon.session.data(from: runtimeURL),
                    let httpResponse = runtimeResponse as? HTTPURLResponse,
                    httpResponse.statusCode == 200 {
                     daemonRuntimeDTO = try? JSONDecoder().decode(DaemonRuntimeStatusDTO.self, from: runtimeData)
@@ -664,16 +664,6 @@ struct DoctorCommand: AsyncParsableCommand {
 
     private static func localInferenceAssets() -> LocalInferenceAssetsStatus {
         LocalInferenceAssetsStatus.currentProcess()
-    }
-
-    private static func daemonBaseURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
-        let host = environment["VALARTTSD_BIND_HOST"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nonEmpty ?? "127.0.0.1"
-        let port = environment["VALARTTSD_BIND_PORT"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .nonEmpty ?? "8787"
-        return URL(string: "http://\(host):\(port)")
     }
 
     private func daemonPIDStatus(paths: ValarAppPaths) -> (path: String, present: Bool, pid: Int?, live: Bool?, matchesProcess: Bool?) {

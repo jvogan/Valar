@@ -568,7 +568,9 @@ private extension VoicesCommand {
         let assetURL = URL(fileURLWithPath: trimmed)
 
         if assetURL.path.hasPrefix("/") {
-            return assetURL.standardizedFileURL
+            let resolvedURL = assetURL.standardizedFileURL
+            try ValarAppPaths.validateContainment(resolvedURL, within: voiceLibraryDirectory)
+            return resolvedURL
         }
 
         try ValarAppPaths.validateRelativePath(trimmed, label: "voice asset")

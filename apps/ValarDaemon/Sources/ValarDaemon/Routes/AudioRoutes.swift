@@ -11,6 +11,10 @@ import ValarPersistence
 
 private let maxMultipartBodyBytes = 15_000_000
 private let maxSpeechRequestBodyBytes = 15_000_000
+private let maxMultipartPartCount = 24
+private let maxMultipartHeaderBytes = 16_384
+private let maxMultipartFieldBytes = 256 * 1024
+private let maxMultipartFileBytes = maxMultipartBodyBytes
 private let validOpusRates: Set<Double> = [8_000, 12_000, 16_000, 24_000, 48_000]
 private let voxtralPresetVoiceIDs = Set(VoxtralCatalog.presetVoices.map(\.name))
 private let internalAudioErrorMessage = "Audio request failed due to an internal daemon error."
@@ -1946,6 +1950,9 @@ private struct MultipartFormData {
         let delimiter = Data(("--" + boundary).utf8)
         let terminal = Data("--".utf8)
         let parts = split(body, by: delimiter)
+        guard parts.count <= maxMultipartPartCount + 2 else {
+            throw DaemonRequestError.invalidMultipart("Multipart request has too many parts.")
+        }
         var fields: [String: String] = [:]
         var files: [String: MultipartFile] = [:]
 
@@ -1966,6 +1973,9 @@ private struct MultipartFormData {
 
             let headerData = part.subdata(in: part.startIndex ..< separatorRange.lowerBound)
             let valueData = part.subdata(in: separatorRange.upperBound ..< part.endIndex)
+            guard headerData.count <= maxMultipartHeaderBytes else {
+                throw DaemonRequestError.invalidMultipart("Multipart section headers are too large.")
+            }
             guard let headerText = String(data: headerData, encoding: .utf8) else {
                 throw DaemonRequestError.invalidMultipart("Multipart headers are not valid UTF-8.")
             }
@@ -1992,14 +2002,26 @@ private struct MultipartFormData {
             guard let fieldName = dispositionAttributes["name"] else {
                 throw DaemonRequestError.invalidMultipart("Multipart field is missing a name.")
             }
+            guard fieldName.utf8.count <= 128 else {
+                throw DaemonRequestError.invalidMultipart("Multipart field name is too long.")
+            }
 
             if let filename = dispositionAttributes["filename"] {
+                guard filename.utf8.count <= 255 else {
+                    throw DaemonRequestError.invalidMultipart("Multipart filename is too long.")
+                }
+                guard valueData.count <= maxMultipartFileBytes else {
+                    throw DaemonRequestError.invalidMultipart("Multipart file is too large.")
+                }
                 files[fieldName] = MultipartFile(
                     filename: filename,
                     contentType: contentTypeHeader,
                     data: valueData
                 )
             } else {
+                guard valueData.count <= maxMultipartFieldBytes else {
+                    throw DaemonRequestError.invalidMultipart("Multipart field value is too large.")
+                }
                 let text = String(data: valueData, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 fields[fieldName] = text

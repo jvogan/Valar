@@ -4,21 +4,32 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCAN_ROOT="$ROOT_DIR"
 RULES_FILE="$ROOT_DIR/tools/public_repo_rules.sh"
+scan_ignored=0
 
 usage() {
   cat <<EOF
-Usage: tools/public_repo_secret_scan.sh [--root PATH]
+Usage: tools/public_repo_secret_scan.sh [--root PATH] [--include-ignored]
 
 Scans tracked or exported files for obvious secret values and committed secret
 assignments. This is the second public release gate after tools/public_repo_audit.sh.
+Use --include-ignored for local full-tree checks that also inspect ignored files.
 EOF
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --root)
+      if [[ $# -lt 2 ]]; then
+        echo "--root requires a path." >&2
+        usage >&2
+        exit 1
+      fi
       SCAN_ROOT="$2"
       shift 2
+      ;;
+    --include-ignored)
+      scan_ignored=1
+      shift
       ;;
     -h|--help)
       usage
@@ -42,19 +53,25 @@ if [[ ! -f "$RULES_FILE" ]]; then
   exit 1
 fi
 
+if ! command -v rg >/dev/null 2>&1; then
+  echo "Public-repo secret scan requires ripgrep (rg) on PATH." >&2
+  exit 1
+fi
+
 # shellcheck source=/dev/null
 source "$RULES_FILE"
 
 collect_files() {
   local root="$1"
-  if git -C "$root" rev-parse --show-toplevel >/dev/null 2>&1 \
+  if [[ "$scan_ignored" == "0" ]] \
+    && git -C "$root" rev-parse --show-toplevel >/dev/null 2>&1 \
     && git -C "$root" rev-parse --verify HEAD >/dev/null 2>&1; then
     git -C "$root" ls-files
   else
     (
       cd "$root"
       find . \
-        \( -name .git -o -name .build -o -name .build-cache -o -name .swiftpm -o -name node_modules \) -prune -o \
+        \( -name .git -o -name .build -o -name .build-cache -o -name .swiftpm -o -name node_modules -o -name __pycache__ \) -prune -o \
         -type f -print | sed 's#^\./##'
     )
   fi
@@ -98,12 +115,19 @@ if [[ -n "${VALAR_PUBLIC_SECRET_SCAN_EXTRA_PATTERN:-}" ]]; then
   RG_ARGS+=(-e "${VALAR_PUBLIC_SECRET_SCAN_EXTRA_PATTERN}")
 fi
 
-if ! (
-  cd "$SCAN_ROOT"
-  xargs -0 rg -n --no-heading "${RG_ARGS[@]}" < "$TMP_FILE_LIST"
-) > "$TMP_HITS"; then
-  :
-fi
+while IFS= read -r -d '' rel; do
+  set +e
+  (
+    cd "$SCAN_ROOT"
+    rg -n --no-heading "${RG_ARGS[@]}" -- "$rel"
+  ) >> "$TMP_HITS"
+  scan_status=$?
+  set -e
+  if [[ "$scan_status" -gt 1 ]]; then
+    echo "Public-repo secret scan failed while scanning: $rel" >&2
+    exit 1
+  fi
+done < "$TMP_FILE_LIST"
 
 if [[ -s "$TMP_HITS" ]]; then
   echo "Public-repo secret scan failed. Found committed secret-like content:" >&2

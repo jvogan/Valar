@@ -14,12 +14,19 @@ actor SessionManager {
         var lastAccessedAt: Date
     }
 
+    private struct SessionCreation {
+        let sessionID: UUID
+        let projectID: UUID
+        let bundleURL: URL
+    }
+
     /// Sessions idle longer than this are evicted on the next prune pass.
     static let sessionTTL: TimeInterval = 60 * 60 // 1 hour
 
     // MARK: - State
 
     private var sessions: [UUID: SessionEntry] = [:]
+    private var openingSessions: [String: Task<SessionCreation, Error>] = [:]
 
     // MARK: - Session lifecycle
 
@@ -27,18 +34,92 @@ actor SessionManager {
     /// Returns a session ID that callers use for subsequent requests.
     /// If the bundle URL is already open the existing session ID is returned.
     func openOrCreate(path rawPath: String, runtime: ValarRuntime) async throws -> UUID {
-        let bundleURL = URL(fileURLWithPath: rawPath).standardizedFileURL
-
-        // Reject paths outside the allowed projects directory to prevent path traversal.
-        try ValarAppPaths.validateContainment(bundleURL, within: runtime.paths.projectsDirectory)
+        let bundleURL = try Self.normalizedProjectBundleURL(rawPath, runtime: runtime)
+        let bundleKey = bundleURL.path
 
         // Return existing session ID if this bundle is already registered.
-        if let existing = sessions.first(where: { $0.value.bundleURL == bundleURL }) {
+        if let existing = sessions.first(where: { $0.value.bundleURL.path == bundleKey }) {
             sessions[existing.key]?.lastAccessedAt = Date()
             return existing.key
         }
 
-        let sessionID = UUID()
+        if openingSessions[bundleKey] == nil {
+            let sessionID = UUID()
+            openingSessions[bundleKey] = Task {
+                try await Self.createSession(
+                    sessionID: sessionID,
+                    bundleURL: bundleURL,
+                    runtime: runtime
+                )
+            }
+        }
+
+        guard let creationTask = openingSessions[bundleKey] else {
+            throw SessionManagerError.sessionOpeningFailed
+        }
+
+        do {
+            let creation = try await creationTask.value
+            if let existing = sessions.first(where: { $0.value.bundleURL.path == bundleKey }) {
+                openingSessions[bundleKey] = nil
+                sessions[existing.key]?.lastAccessedAt = Date()
+                return existing.key
+            }
+
+            sessions[creation.sessionID] = SessionEntry(
+                projectID: creation.projectID,
+                bundleURL: creation.bundleURL,
+                lastAccessedAt: Date()
+            )
+            openingSessions[bundleKey] = nil
+            return creation.sessionID
+        } catch {
+            openingSessions[bundleKey] = nil
+            if let existing = sessions.first(where: { $0.value.bundleURL.path == bundleKey }) {
+                sessions[existing.key]?.lastAccessedAt = Date()
+                return existing.key
+            }
+            throw error
+        }
+    }
+
+    private nonisolated static func normalizedProjectBundleURL(
+        _ rawPath: String,
+        runtime: ValarRuntime
+    ) throws -> URL {
+        let standardized = URL(fileURLWithPath: rawPath).standardizedFileURL
+        try ValarAppPaths.validateContainment(standardized, within: runtime.paths.projectsDirectory)
+        return try canonicalizedURL(standardized, fileManager: .default)
+    }
+
+    private nonisolated static func canonicalizedURL(
+        _ url: URL,
+        fileManager: FileManager
+    ) throws -> URL {
+        let standardized = url.standardizedFileURL
+        var existingAncestor = standardized
+        var unresolvedComponents: [String] = []
+
+        while !fileManager.fileExists(atPath: existingAncestor.path) {
+            let parent = existingAncestor.deletingLastPathComponent()
+            if parent.path == existingAncestor.path {
+                break
+            }
+            unresolvedComponents.insert(existingAncestor.lastPathComponent, at: 0)
+            existingAncestor = parent
+        }
+
+        let resolvedAncestor = existingAncestor.resolvingSymlinksInPath().standardizedFileURL
+        return unresolvedComponents.reduce(resolvedAncestor) { partial, component in
+            partial.appendingPathComponent(component, isDirectory: false)
+        }
+    }
+
+    private nonisolated static func createSession(
+        sessionID: UUID,
+        bundleURL: URL,
+        runtime: ValarRuntime
+    ) async throws -> SessionCreation {
         let projectID: UUID
 
         if FileManager.default.fileExists(atPath: bundleURL.path) {
@@ -47,7 +128,6 @@ actor SessionManager {
             let docSession = await runtime.createDocumentSession(for: bundle)
             projectID = await docSession.projectID()
         } else {
-            // Create a fresh project and seed an empty bundle in the runtime.
             let title = bundleURL.deletingPathExtension().lastPathComponent
             let project = try await runtime.projectStore.create(
                 title: title.isEmpty ? "Untitled" : title,
@@ -70,14 +150,7 @@ actor SessionManager {
             _ = await runtime.createDocumentSession(for: bundle)
         }
 
-        // After await — re-check for duplicate (another request may have inserted during our await)
-        if let existing = sessions.first(where: { $0.value.bundleURL == bundleURL }) {
-            // Another caller already created a session for this bundle during our await
-            return existing.key
-        }
-
-        sessions[sessionID] = SessionEntry(projectID: projectID, bundleURL: bundleURL, lastAccessedAt: Date())
-        return sessionID
+        return SessionCreation(sessionID: sessionID, projectID: projectID, bundleURL: bundleURL)
     }
 
     /// Returns the project ID and bundle URL for the given session ID, updating its last-accessed timestamp.
@@ -112,11 +185,14 @@ actor SessionManager {
 
 enum SessionManagerError: LocalizedError, Sendable {
     case sessionNotFound(UUID)
+    case sessionOpeningFailed
 
     var errorDescription: String? {
         switch self {
         case .sessionNotFound(let id):
             return "Session '\(id.uuidString)' not found."
+        case .sessionOpeningFailed:
+            return "Session could not be opened."
         }
     }
 }

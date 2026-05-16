@@ -1,5 +1,6 @@
 import Hummingbird
 import Foundation
+import HTTPTypes
 import NIOCore
 import NIOHTTPTypes
 import ValarCore
@@ -60,6 +61,114 @@ final class ClientInputCloseHandler: ChannelInboundHandler, RemovableChannelHand
     private func signalDisconnect() {
         disconnectPromise?.succeed(())
         disconnectPromise = nil
+    }
+}
+
+private extension HTTPField.Name {
+    static let secFetchSite = Self("Sec-Fetch-Site")!
+    static let secFetchMode = Self("Sec-Fetch-Mode")!
+}
+
+struct LocalDaemonRequestGuardMiddleware<Context: RequestContext>: RouterMiddleware {
+    private let loopbackHosts = Set(["127.0.0.1", "::1", "[::1]", "localhost"])
+
+    func handle(
+        _ request: Request,
+        context: Context,
+        next: (Request, Context) async throws -> Response
+    ) async throws -> Response {
+        guard isAllowedHost(request.head.authority) else {
+            return ValarDaemonRouter.daemonErrorResponse(
+                message: "Request Host must be loopback.",
+                status: .forbidden,
+                kind: "local_request_guard"
+            )
+        }
+        guard isAllowedBrowserFetchMetadata(request) else {
+            return ValarDaemonRouter.daemonErrorResponse(
+                message: "Cross-site browser requests are not allowed.",
+                status: .forbidden,
+                kind: "local_request_guard"
+            )
+        }
+        guard isAllowedOrigin(request.headers[.origin]) else {
+            return ValarDaemonRouter.daemonErrorResponse(
+                message: "Cross-origin browser requests are not allowed.",
+                status: .forbidden,
+                kind: "local_request_guard"
+            )
+        }
+        guard hasAllowedContentType(request) else {
+            return ValarDaemonRouter.daemonErrorResponse(
+                message: "Unsupported Content-Type for this endpoint.",
+                status: .unsupportedMediaType,
+                kind: "local_request_guard"
+            )
+        }
+
+        return try await next(request, context)
+    }
+
+    private func isAllowedHost(_ hostHeader: String?) -> Bool {
+        guard let hostHeader, hostHeader.isEmpty == false else {
+            return true
+        }
+        return loopbackHosts.contains(hostWithoutPort(hostHeader).lowercased())
+    }
+
+    private func hostWithoutPort(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("[") {
+            guard let end = trimmed.firstIndex(of: "]") else { return trimmed }
+            return String(trimmed[...end])
+        }
+        return trimmed.split(separator: ":", maxSplits: 1).first.map(String.init) ?? trimmed
+    }
+
+    private func isAllowedBrowserFetchMetadata(_ request: Request) -> Bool {
+        let site = request.headers[.secFetchSite]?.lowercased()
+        if site == "cross-site" || site == "same-site" {
+            return false
+        }
+        if request.method != .get {
+            let mode = request.headers[.secFetchMode]?.lowercased()
+            if mode == "no-cors" || mode == "navigate" {
+                return false
+            }
+        }
+        return true
+    }
+
+    private func isAllowedOrigin(_ originHeader: String?) -> Bool {
+        guard let originHeader, originHeader.isEmpty == false else {
+            return true
+        }
+        guard let origin = URL(string: originHeader), let host = origin.host else {
+            return false
+        }
+        return loopbackHosts.contains(host.lowercased())
+    }
+
+    private func hasAllowedContentType(_ request: Request) -> Bool {
+        switch request.method {
+        case .get, .head, .delete:
+            return true
+        default:
+            guard let contentType = request.headers[.contentType]?.lowercased() else {
+                return requestContentLength(request) == 0
+            }
+            return contentType.hasPrefix("application/json")
+                || contentType.hasPrefix("multipart/form-data")
+        }
+    }
+
+    private func requestContentLength(_ request: Request) -> Int {
+        guard let rawLength = request.headers[.contentLength]?.trimmingCharacters(in: .whitespacesAndNewlines),
+              rawLength.isEmpty == false
+        else {
+            return 0
+        }
+        return Int(rawLength) ?? -1
     }
 }
 
@@ -129,6 +238,9 @@ enum ValarDaemonRouter {
         startedAt: Date
     ) {
         let v1 = router.group("v1")
+        v1.addMiddleware {
+            LocalDaemonRequestGuardMiddleware<Context>()
+        }
         registerHealthRoutes(on: v1, runtime: runtime)
         registerReadyRoutes(on: v1, runtime: runtime)
         registerRuntimeRoutes(on: v1, runtime: runtime, startedAt: startedAt)

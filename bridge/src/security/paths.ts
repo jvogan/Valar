@@ -1,4 +1,4 @@
-import { resolve, join, extname, dirname, basename } from "path";
+import { resolve, join, extname, dirname, basename, isAbsolute } from "path";
 import { statSync, lstatSync, realpathSync } from "fs";
 import { homedir } from "os";
 import { INBOX_DIR, OUTBOX_DIR } from "../storage.js";
@@ -86,7 +86,10 @@ function resolveInputAllowedDirs(): string[] {
 
 const INPUT_ALLOWED = resolveInputAllowedDirs();
 
-export function validateInputPath(p: string): void {
+export function validateInputPath(p: string): string {
+  if (!isAbsolute(p)) {
+    throw new Error("Input path must be absolute.");
+  }
   const resolved = resolveWithSymlinks(p);
   const ext = extname(resolved).toLowerCase();
   if (!AUDIO_EXTENSIONS.has(ext)) {
@@ -96,8 +99,15 @@ export function validateInputPath(p: string): void {
   }
   let size: number;
   try {
-    size = statSync(resolved).size;
-  } catch {
+    const stat = statSync(resolved);
+    if (!stat.isFile()) {
+      throw new Error(`Input path must be a regular file: ${redactPath(p)}`);
+    }
+    size = stat.size;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("regular file")) {
+      throw error;
+    }
     throw new Error(`Cannot stat input file: ${redactPath(p)}`);
   }
   if (size > MAX_INPUT_BYTES) {
@@ -111,9 +121,13 @@ export function validateInputPath(p: string): void {
       "Input path must be within Desktop, Downloads, Documents, Music, /tmp, or Valar bridge storage.",
     );
   }
+  return resolved;
 }
 
-export function validateOutputPath(p: string): void {
+export function validateOutputPath(p: string): string {
+  if (!isAbsolute(p)) {
+    throw new Error("Output path must be absolute.");
+  }
   const resolved = resolveWithSymlinks(p);
   const ext = extname(resolved).toLowerCase();
   if (!AUDIO_EXTENSIONS.has(ext)) {
@@ -127,4 +141,5 @@ export function validateOutputPath(p: string): void {
       `Output path must be within an allowed directory (Desktop, Downloads, Documents, /tmp, or Valar bridge storage). Got: ${redactPath(p)}`,
     );
   }
+  return resolved;
 }

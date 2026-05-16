@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { daemonUnavailableMessage, sanitizeMessage } from "../security/redaction.js";
+import { daemonFetch, readDaemonJSON, readDaemonText } from "../security/daemon.js";
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -34,7 +35,7 @@ export function register(
 
       let res: Response;
       try {
-        res = await fetch(daemonURL("/voices/create"), {
+        res = await daemonFetch(daemonURL("/voices/create"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -44,11 +45,11 @@ export function register(
       }
 
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
+        const text = await readDaemonText(res).catch(() => "");
         return err(`Voice creation failed (${res.status}): ${text}`);
       }
 
-      const voice = await res.json();
+      const voice = await readDaemonJSON(res);
       return ok(JSON.stringify(voice, null, 2));
     },
   );

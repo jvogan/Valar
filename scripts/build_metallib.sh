@@ -40,22 +40,29 @@ FALLBACK_METALLIB_CANDIDATES=(
 
 append_path_list() {
   local value="$1"
-  local -n target_ref="$2"
+  local target_name="$2"
   local item
   local IFS=':'
   read -r -a extra_paths <<< "$value"
   for item in "${extra_paths[@]}"; do
     [[ -n "$item" ]] || continue
-    target_ref+=("$item")
+    case "$target_name" in
+      scratch)
+        DEFAULT_SCRATCH_CANDIDATES+=("$item")
+        ;;
+      output)
+        DEFAULT_OUTPUT_DIRS+=("$item")
+        ;;
+    esac
   done
 }
 
 if [[ -n "${VALARTTS_METALLIB_EXTRA_SCRATCH_CANDIDATES:-}" ]]; then
-  append_path_list "$VALARTTS_METALLIB_EXTRA_SCRATCH_CANDIDATES" DEFAULT_SCRATCH_CANDIDATES
+  append_path_list "$VALARTTS_METALLIB_EXTRA_SCRATCH_CANDIDATES" scratch
 fi
 
 if [[ -n "${VALARTTS_METALLIB_EXTRA_OUTPUT_DIRS:-}" ]]; then
-  append_path_list "$VALARTTS_METALLIB_EXTRA_OUTPUT_DIRS" DEFAULT_OUTPUT_DIRS
+  append_path_list "$VALARTTS_METALLIB_EXTRA_OUTPUT_DIRS" output
 fi
 
 install_metallib() {
@@ -179,7 +186,11 @@ DEFAULT_OUTPUT_DIRS=(
   "${DEFAULT_OUTPUT_DIRS[@]}"
 )
 
-mkdir -p "$BUILD_DIR"
+BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/valar-metallib.XXXXXX")"
+cleanup() {
+  rm -rf "$BUILD_DIR"
+}
+trap cleanup EXIT
 
 # Include paths for Metal headers:
 # - Generated shaders reference headers in their own dir
@@ -223,13 +234,14 @@ fi
 echo "Compiling Metal shaders..."
 compiled=0
 skipped=0
+air_files=()
 
 # Compile ALL .metal files: backend kernels first (authoritative), then generated shaders.
 # Track compiled basenames in a temp file to skip generated duplicates (bash 3 compatible).
 compiled_names="$BUILD_DIR/.compiled_basenames"
 : > "$compiled_names"
 
-for f in $(find "$BACKEND_DIR" "$GENERATED_DIR" -name "*.metal" 2>/dev/null | sort); do
+while IFS= read -r -d '' f; do
   [[ -f "$f" ]] || continue
   base=$(basename "$f" .metal)
   # Skip generated duplicates of backend kernels (backend is authoritative)
@@ -240,22 +252,25 @@ for f in $(find "$BACKEND_DIR" "$GENERATED_DIR" -name "*.metal" 2>/dev/null | so
   # Use relative path to create unique .air name
   relpath="${f#$MLX_CHECKOUT/}"
   airname=$(echo "$relpath" | tr '/' '_' | sed 's/\.metal$/.air/')
+  airpath="$BUILD_DIR/$airname"
   if "$METAL_BIN" -c "$f" -o "$BUILD_DIR/$airname" \
     "${INCLUDE_FLAGS[@]}" \
     -std=metal3.1 -target air64-apple-macos14.0 2>/dev/null; then
     compiled=$((compiled + 1))
     echo "$base" >> "$compiled_names"
+    air_files+=("$airpath")
   elif "$METAL_BIN" -c "$f" -o "$BUILD_DIR/$airname" \
     "${INCLUDE_FLAGS[@]}" \
     -std=metal3.2 -target air64-apple-macos15.0 2>/dev/null; then
     # Some kernels (fence, nax variants) require Metal 3.2 features
     compiled=$((compiled + 1))
     echo "$base" >> "$compiled_names"
+    air_files+=("$airpath")
   else
     skipped=$((skipped + 1))
     echo "  SKIP $base (compile error)"
   fi
-done
+done < <(find "$BACKEND_DIR" "$GENERATED_DIR" -name "*.metal" -print0 2>/dev/null)
 rm -f "$compiled_names"
 
 echo "Compiled $compiled shaders ($skipped skipped)."
@@ -273,7 +288,7 @@ if [[ $compiled -eq 0 ]]; then
 fi
 
 echo "Linking mlx.metallib..."
-"$METALLIB_BIN" "$BUILD_DIR"/*.air -o "$BUILD_DIR/mlx.metallib"
+"$METALLIB_BIN" "${air_files[@]}" -o "$BUILD_DIR/mlx.metallib"
 
 install_metallib "$BUILD_DIR/mlx.metallib"
 

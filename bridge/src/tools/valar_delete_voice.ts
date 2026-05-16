@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { daemonUnavailableMessage, sanitizeMessage } from "../security/redaction.js";
+import { daemonFetch, readDaemonText } from "../security/daemon.js";
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -26,7 +27,7 @@ export function register(
     async ({ voice_id }) => {
       let res: Response;
       try {
-        res = await fetch(daemonURL(`/voices/${voice_id}`), {
+        res = await daemonFetch(daemonURL(`/voices/${voice_id}`), {
           method: "DELETE",
         });
       } catch {
@@ -34,7 +35,7 @@ export function register(
       }
 
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
+        const text = await readDaemonText(res).catch(() => "");
         return err(`Voice deletion failed (${res.status}): ${text}`);
       }
 

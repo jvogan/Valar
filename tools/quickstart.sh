@@ -9,11 +9,11 @@ bash ./tools/bootstrap.sh native
 
 echo "Building Valar CLI"
 swift build --package-path apps/ValarCLI
+cli_bin="$(swift build --package-path apps/ValarCLI --show-bin-path)/valartts"
 
 echo "Building MLX metallib"
 bash ./scripts/build_metallib.sh
 
-cli_bin="$repo_root/apps/ValarCLI/.build/arm64-apple-macosx/debug/valartts"
 if [[ ! -x "$cli_bin" ]]; then
   echo "Error: expected CLI binary at $cli_bin" >&2
   exit 1

@@ -89,8 +89,21 @@ extension ModelsCommand {
                 throw ValidationError("Refreshing shared cache for '\(id)' requires --allow-download because Valar will need to fetch a fresh snapshot.")
             }
 
+            var refreshWarnings: [String] = []
             if refreshCache {
-                _ = try await runtime.modelInstaller.uninstall(modelID: model.id)
+                if model.providerURL != nil, model.installState == .installed {
+                    do {
+                        try await runtime.modelInstaller.verifyInstalledArtifacts(manifest: manifest)
+                    } catch {
+                        let warning = "Existing installed pack failed integrity validation and will be removed before refresh: \(error.localizedDescription)"
+                        refreshWarnings.append(warning)
+                        if !OutputContext.jsonRequested {
+                            print("warning: \(warning)")
+                        }
+                        _ = try await runtime.modelInstaller.uninstall(modelID: model.id)
+                    }
+                }
+
                 let purgedPaths = try await runtime.modelInstaller.purgeSharedCaches(for: model.id)
                 if !OutputContext.jsonRequested {
                     if purgedPaths.isEmpty {
@@ -108,31 +121,7 @@ extension ModelsCommand {
             // A `.cached` model has files on disk already; only `.supported` + remoteURL requires download.
             if (model.installState == .supported || refreshCache), let sourceURL = model.providerURL, !allowDownload {
                 let warningMessage = "Model '\(model.descriptor.displayName)' is not cached locally and requires a download from: \(sourceURL.absoluteString)\nRe-run with --allow-download to permit the download."
-                if OutputContext.jsonRequested {
-                    struct DownloadRequiredEnvelope: Encodable {
-                        let ok: Bool
-                        let command: String
-                        let error: ErrorDetails
-                        struct ErrorDetails: Encodable {
-                            let code: Int
-                            let kind: String
-                            let message: String
-                            let model: String
-                            let estimatedSize: String
-                        }
-                    }
-                    let encoder = JSONEncoder()
-                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                    let dto = DownloadRequiredEnvelope(
-                        ok: false,
-                        command: OutputFormat.commandPath("models install"),
-                        error: .init(code: 2, kind: "download_required", message: warningMessage, model: id, estimatedSize: "unknown")
-                    )
-                    print(String(decoding: try encoder.encode(dto), as: UTF8.self))
-                } else {
-                    print("warning: \(warningMessage)")
-                }
-                return
+                throw ValidationError(warningMessage)
             }
 
             let sourceKind: ModelPackSourceKind = model.providerURL == nil ? .localFile : .remoteURL
@@ -168,6 +157,7 @@ extension ModelsCommand {
 
             let warnings = result.report.issues.filter { $0.severity == .warning }
             let message = "Installed \(result.descriptor.displayName) | \(result.record.installedPath)"
+            let installWarnings = refreshWarnings + ModelsCommand.humanReadableInstallWarnings(from: warnings)
 
             if OutputContext.jsonRequested {
                 try OutputFormat.writeSuccess(
@@ -177,13 +167,13 @@ extension ModelsCommand {
                         model: ModelSummaryDTO(from: model),
                         result: "installed",
                         installedPath: result.record.installedPath,
-                        warnings: ModelsCommand.humanReadableInstallWarnings(from: warnings)
+                        warnings: installWarnings
                     )
                 )
                 return
             }
 
-            for warning in ModelsCommand.humanReadableInstallWarnings(from: warnings) {
+            for warning in installWarnings where !refreshWarnings.contains(warning) {
                 print("warning: \(warning)")
             }
 
@@ -501,7 +491,7 @@ private extension ModelsCommand {
         let checksumCount = checksumWarnings.count
         let noun = checksumCount == 1 ? "artifact" : "artifacts"
         let checksumSummary =
-            "\(checksumCount) \(noun) in this model pack do not declare SHA-256 checksums. Valar can install them, but cannot locally verify the downloaded files."
+            "\(checksumCount) \(noun) in this model pack do not declare SHA-256 checksums. Valar will not install those files from remote sources until checksums are declared."
         return otherWarnings + [checksumSummary]
     }
 

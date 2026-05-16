@@ -5,6 +5,11 @@ import ValarCore
 import ValarModelKit
 import ValarPersistence
 
+private let maxVoiceCloneMultipartPartCount = 16
+private let maxVoiceCloneMultipartHeaderBytes = 16_384
+private let maxVoiceCloneMultipartFieldBytes = 256 * 1024
+private let maxVoiceCloneMultipartFileBytes = 15_000_000
+
 private actor VoiceMutationRateLimiter {
     struct Decision: Sendable {
         let allowed: Bool
@@ -444,6 +449,9 @@ private struct VoiceCloneFormData: Sendable {
         let delimiter = Data(("--" + boundary).utf8)
         let terminal = Data("--".utf8)
         let parts = splitByDelimiter(body, delimiter: delimiter)
+        guard parts.count <= maxVoiceCloneMultipartPartCount + 2 else {
+            throw VoiceCloneParseError.tooManyParts
+        }
 
         var fields: [String: String] = [:]
         var files: [String: VoiceCloneFile] = [:]
@@ -461,6 +469,9 @@ private struct VoiceCloneFormData: Sendable {
 
             let headerData = part.subdata(in: part.startIndex ..< sepRange.lowerBound)
             let valueData = part.subdata(in: sepRange.upperBound ..< part.endIndex)
+            guard headerData.count <= maxVoiceCloneMultipartHeaderBytes else {
+                throw VoiceCloneParseError.headerTooLarge
+            }
 
             guard let headerText = String(data: headerData, encoding: .utf8) else {
                 throw VoiceCloneParseError.malformedPart
@@ -480,10 +491,22 @@ private struct VoiceCloneFormData: Sendable {
             }
 
             guard let fieldName = dispositionAttrs["name"] else { continue }
+            guard fieldName.utf8.count <= 128 else {
+                throw VoiceCloneParseError.fieldNameTooLong
+            }
 
             if let filename = dispositionAttrs["filename"] {
+                guard filename.utf8.count <= 255 else {
+                    throw VoiceCloneParseError.filenameTooLong
+                }
+                guard valueData.count <= maxVoiceCloneMultipartFileBytes else {
+                    throw VoiceCloneParseError.fileTooLarge
+                }
                 files[fieldName] = VoiceCloneFile(filename: filename, data: valueData)
             } else {
+                guard valueData.count <= maxVoiceCloneMultipartFieldBytes else {
+                    throw VoiceCloneParseError.fieldTooLarge
+                }
                 let text = String(data: valueData, encoding: .utf8)?
                     .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
                 fields[fieldName] = text
@@ -558,6 +581,12 @@ private struct VoiceCloneFormData: Sendable {
 private enum VoiceCloneParseError: LocalizedError {
     case missingBoundary
     case malformedPart
+    case tooManyParts
+    case headerTooLarge
+    case fieldNameTooLong
+    case filenameTooLong
+    case fieldTooLarge
+    case fileTooLarge
 
     var errorDescription: String? {
         switch self {
@@ -565,6 +594,18 @@ private enum VoiceCloneParseError: LocalizedError {
             return "Missing multipart boundary in Content-Type."
         case .malformedPart:
             return "Malformed multipart section."
+        case .tooManyParts:
+            return "Multipart request has too many parts."
+        case .headerTooLarge:
+            return "Multipart section headers are too large."
+        case .fieldNameTooLong:
+            return "Multipart field name is too long."
+        case .filenameTooLong:
+            return "Multipart filename is too long."
+        case .fieldTooLarge:
+            return "Multipart field value is too large."
+        case .fileTooLarge:
+            return "Multipart file is too large."
         }
     }
 }

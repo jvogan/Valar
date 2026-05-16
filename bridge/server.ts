@@ -13,49 +13,37 @@ import * as valarTranscribe from "./src/tools/valar_transcribe.js";
 import * as valarAlign from "./src/tools/valar_align.js";
 import * as valarInstallModel from "./src/tools/valar_install_model.js";
 import { daemonUnavailableMessage, sanitizeMessage } from "./src/security/redaction.js";
-
-function requireLoopbackDaemonURL(raw: string): string {
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    throw new Error(`VALAR_DAEMON_URL is not a valid URL: ${raw}`);
-  }
-  const loopbackHosts = new Set(["127.0.0.1", "::1", "localhost"]);
-  if (!loopbackHosts.has(parsed.hostname)) {
-    throw new Error(
-      `VALAR_DAEMON_URL must point to a loopback address (127.0.0.1, ::1, or localhost). Got: ${parsed.hostname}`,
-    );
-  }
-  return raw;
-}
+import {
+  createDaemonURLBuilder,
+  daemonFetch,
+  readDaemonJSON,
+  readDaemonText,
+  requireLoopbackDaemonURL,
+} from "./src/security/daemon.js";
 
 const DAEMON_URL = requireLoopbackDaemonURL(process.env.VALAR_DAEMON_URL ?? "http://127.0.0.1:8787");
-
-function daemonURL(path: string): string {
-  return `${DAEMON_URL}/v1${path}`;
-}
+const daemonURL = createDaemonURLBuilder(DAEMON_URL);
 
 async function daemonGet(path: string): Promise<unknown> {
-  const res = await fetch(daemonURL(path));
+  const res = await daemonFetch(daemonURL(path));
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    const text = await readDaemonText(res).catch(() => "");
     throw new Error(`Daemon GET ${path} → ${res.status}: ${text}`);
   }
-  return res.json();
+  return readDaemonJSON(res);
 }
 
 async function daemonPost(path: string, body: unknown): Promise<unknown> {
-  const res = await fetch(daemonURL(path), {
+  const res = await daemonFetch(daemonURL(path), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
+    const text = await readDaemonText(res).catch(() => "");
     throw new Error(`Daemon POST ${path} → ${res.status}: ${text}`);
   }
-  return res.json();
+  return readDaemonJSON(res);
 }
 
 function ok(text: string) {
@@ -68,9 +56,7 @@ function err(text: string) {
 
 async function checkDaemonHealthy(): Promise<boolean> {
   try {
-    const res = await fetch(daemonURL("/health"), {
-      signal: AbortSignal.timeout(5_000),
-    });
+    const res = await daemonFetch(daemonURL("/health"), {}, 5_000);
     return res.ok;
   } catch {
     return false;
@@ -247,18 +233,18 @@ server.tool(
       if (title !== undefined) body.title = title;
       if (text !== undefined) body.text = text;
 
-      const res = await fetch(daemonURL(`/sessions/${session_id}/chapters/${chapter_id}`), {
+      const res = await daemonFetch(daemonURL(`/sessions/${session_id}/chapters/${chapter_id}`), {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
 
       if (!res.ok) {
-        const t = await res.text().catch(() => "");
+        const t = await readDaemonText(res).catch(() => "");
         return err(`Chapter update failed (${res.status}): ${t}`);
       }
 
-      const result = await res.json();
+      const result = await readDaemonJSON(res);
       return ok(JSON.stringify(result, null, 2));
     } catch (e) {
       return err(String(e));

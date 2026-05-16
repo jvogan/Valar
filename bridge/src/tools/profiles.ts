@@ -1,6 +1,7 @@
 import { readFile } from "fs/promises";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { z } from "zod";
 
 export interface ChannelPrefs {
   format?: "wav" | "ogg_opus";
@@ -17,6 +18,22 @@ export interface AgentProfile {
 interface ProfilesFile {
   profiles: Record<string, AgentProfile>;
 }
+
+const ChannelPrefsSchema = z.object({
+  format: z.enum(["wav", "ogg_opus"]).optional(),
+});
+
+const AgentProfileSchema = z.object({
+  voiceId: z.string().nullable(),
+  model: z.string().nullable(),
+  format: z.enum(["wav", "ogg_opus"]).nullable(),
+  voiceBehavior: z.enum(["auto", "expressive", "stableNarrator"]).optional(),
+  channelPrefs: ChannelPrefsSchema.default({}),
+});
+
+const ProfilesFileSchema = z.object({
+  profiles: z.record(AgentProfileSchema),
+});
 
 const BUNDLED_CONFIG_PATH = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -51,8 +68,8 @@ async function loadProfiles(): Promise<Record<string, AgentProfile>> {
   for (const path of profileSearchPaths()) {
     try {
       const raw = await readFile(path, "utf8");
-      const parsed = JSON.parse(raw) as ProfilesFile;
-      if (parsed?.profiles && typeof parsed.profiles === "object") {
+      const parsed = ProfilesFileSchema.parse(JSON.parse(raw)) as ProfilesFile;
+      if (parsed.profiles && typeof parsed.profiles === "object") {
         cachedProfiles = parsed.profiles;
         return cachedProfiles;
       }

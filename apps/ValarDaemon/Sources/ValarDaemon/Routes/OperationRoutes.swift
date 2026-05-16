@@ -161,6 +161,41 @@ extension ValarDaemonRouter {
             }
         }
 
+        router.post("operations/:id/cancel") { _, context async -> Response in
+            do {
+                guard let id = context.parameters.get("id"),
+                      !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    return operationErrorResponse(
+                        "Missing operation ID parameter.",
+                        status: .badRequest
+                    )
+                }
+
+                switch await operations.cancel(id: id) {
+                case .cancelled(let operation):
+                    return try jsonResponse(operation)
+                case .running:
+                    return operationErrorResponse(
+                        "Operation is already running and cannot be cancelled safely.",
+                        status: .conflict,
+                        help: "Wait for the operation to finish, then inspect its status."
+                    )
+                case .alreadyFinished(let operation):
+                    return try jsonResponse(operation)
+                case .notFound:
+                    return operationErrorResponse(
+                        "Operation '\(id)' not found.",
+                        status: .notFound
+                    )
+                }
+            } catch {
+                return operationErrorResponse(
+                    "Failed to cancel operation.",
+                    status: .internalServerError
+                )
+            }
+        }
+
         router.get("queue") { _, _ async throws -> Response in
             do {
                 return try jsonResponse(await operations.queueState())

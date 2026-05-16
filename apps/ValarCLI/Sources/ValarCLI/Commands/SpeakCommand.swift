@@ -679,6 +679,11 @@ struct SpeakCommand: AsyncParsableCommand {
         runtime: ValarRuntime
     ) async throws {
         let buffer = AudioPCMBuffer(mono: chunk.samples, sampleRate: chunk.sampleRate)
+        try FileManager.default.createDirectory(
+            at: outputURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
         switch format {
         case .wav:
             let audioFormat = AudioFormatDescriptor(
@@ -698,10 +703,6 @@ struct SpeakCommand: AsyncParsableCommand {
             try oggData.write(to: outputURL)
         case .pcmF32le:
             let rawData = audioPCMFloat32LEData(from: chunk.samples)
-            try FileManager.default.createDirectory(
-                at: outputURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
             try rawData.write(to: outputURL)
         }
     }

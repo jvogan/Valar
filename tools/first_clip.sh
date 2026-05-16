@@ -8,9 +8,10 @@ output_path="${VALAR_FIRST_CLIP_OUTPUT:-${TMPDIR:-/tmp}/valar-first-clip.wav}"
 clip_text="${VALAR_FIRST_CLIP_TEXT:-Hello from Valar.}"
 model_id="mlx-community/Soprano-1.1-80M-bf16"
 
-cli_bin="$repo_root/apps/ValarCLI/.build/arm64-apple-macosx/debug/valartts"
-metallib_path="$repo_root/apps/ValarCLI/.build/arm64-apple-macosx/debug/mlx.metallib"
-default_metallib_path="$repo_root/apps/ValarCLI/.build/arm64-apple-macosx/debug/default.metallib"
+cli_bin="$(swift build --package-path apps/ValarCLI --show-bin-path)/valartts"
+cli_bin_dir="$(dirname "$cli_bin")"
+metallib_path="$cli_bin_dir/mlx.metallib"
+default_metallib_path="$cli_bin_dir/default.metallib"
 
 if [[ ! -x "$cli_bin" || ( ! -f "$metallib_path" && ! -f "$default_metallib_path" ) ]]; then
   bash ./tools/quickstart.sh

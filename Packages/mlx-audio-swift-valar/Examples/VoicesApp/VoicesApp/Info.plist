@@ -26,8 +26,6 @@
     <string></string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
-    <key>HF_TOKEN</key>
-    <string></string>
     <key>NSMicrophoneUsageDescription</key>
     <string>VoicesApp needs microphone access to record audio for transcription.</string>
 </dict>

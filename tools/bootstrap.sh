@@ -81,6 +81,6 @@ if [[ "$with_bridge" == "1" && -f "bridge/package.json" ]]; then
   echo "Installing bridge dependencies"
   (
     cd bridge
-    bun install
+    bun install --frozen-lockfile --ignore-scripts
   )
 fi
