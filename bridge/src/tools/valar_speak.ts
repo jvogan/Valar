@@ -5,6 +5,7 @@ import { extname } from "path";
 import { resolveProfile } from "./profiles.js";
 import { validateInputPath, validateOutputPath } from "../security/paths.js";
 import { daemonUnavailableMessage, redactPath, sanitizeMessage } from "../security/redaction.js";
+import { daemonFetch, readDaemonBinary, readDaemonText } from "../security/daemon.js";
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -15,9 +16,9 @@ function err(text: string) {
 }
 
 async function encodeReferenceAudioDataURL(filePath: string): Promise<string> {
-  validateInputPath(filePath);
-  const bytes = await readFile(filePath);
-  const ext = extname(filePath).toLowerCase();
+  const resolvedPath = validateInputPath(filePath);
+  const bytes = await readFile(resolvedPath);
+  const ext = extname(resolvedPath).toLowerCase();
   const mime =
     ext === ".m4a" ? "audio/mp4" :
     ext === ".wav" ? "audio/wav" :
@@ -97,6 +98,13 @@ export function register(
         ),
     },
     async ({ text, output_path, profile, voice, model, voice_behavior, format, temperature, top_p, repetition_penalty, max_tokens, reference_audio_path, reference_transcript, language }) => {
+      let resolvedOutputPath: string;
+      try {
+        resolvedOutputPath = validateOutputPath(output_path);
+      } catch (e) {
+        return err(String(e));
+      }
+
       let resolvedVoice = voice;
       let resolvedModel = model;
       let resolvedFormat = format;
@@ -133,7 +141,7 @@ export function register(
 
       let res: Response;
       try {
-        res = await fetch(daemonURL("/audio/speech"), {
+        res = await daemonFetch(daemonURL("/audio/speech"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -143,14 +151,13 @@ export function register(
       }
 
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
+        const text = await readDaemonText(res).catch(() => "");
         return err(`Speech synthesis failed (${res.status}): ${text}`);
       }
 
       try {
-        const buffer = await res.arrayBuffer();
-        validateOutputPath(output_path);
-        await writeFile(output_path, Buffer.from(buffer));
+        const buffer = await readDaemonBinary(res);
+        await writeFile(resolvedOutputPath, Buffer.from(buffer));
         return ok(
           `Audio written to ${redactPath(output_path)} (${buffer.byteLength} bytes)`,
         );

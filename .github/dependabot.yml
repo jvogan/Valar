@@ -5,8 +5,18 @@ updates:
     schedule:
       interval: "weekly"
 
-  - package-ecosystem: "npm"
+  - package-ecosystem: "bun"
     directory: "/bridge"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "pip"
+    directory: "/scripts/voxtral"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "pre-commit"
+    directory: "/"
     schedule:
       interval: "weekly"
 
@@ -22,6 +32,16 @@ updates:
 
   - package-ecosystem: "swift"
     directory: "/Packages/ValarMLX"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/Packages/ValarCore"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: "swift"
+    directory: "/Packages/ValarModelKit"
     schedule:
       interval: "weekly"
 

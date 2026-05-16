@@ -13,21 +13,21 @@ struct CapabilitiesCommand: AsyncParsableCommand {
     mutating func run() async throws {
         let runtime = try ValarRuntime()
         let metallibAvailable = Self.checkMetallibAvailable()
-        let daemonBaseURL = Self.daemonBaseURL()
+        let daemonBaseURL = CLILocalDaemon.baseURL()
 
         // Ping daemon health first, then readiness.
         var daemonReachable = false
         var daemonReady = false
         var daemonReadyDTO: DaemonReadyDTO?
         if let healthURL = daemonBaseURL?.appendingPathComponent("v1/health") {
-            if let (_, response) = try? await URLSession.shared.data(from: healthURL),
+            if let (_, response) = try? await CLILocalDaemon.session.data(from: healthURL),
                let http = response as? HTTPURLResponse,
                http.statusCode == 200 {
                 daemonReachable = true
             }
         }
         if daemonReachable, let url = daemonBaseURL?.appendingPathComponent("v1/ready") {
-            if let (data, response) = try? await URLSession.shared.data(from: url),
+            if let (data, response) = try? await CLILocalDaemon.session.data(from: url),
                let http = response as? HTTPURLResponse {
                 if let dto = try? JSONDecoder().decode(DaemonReadyDTO.self, from: data) {
                     daemonReadyDTO = dto
@@ -71,18 +71,6 @@ struct CapabilitiesCommand: AsyncParsableCommand {
             }
         }
         return false
-    }
-
-    private static func daemonBaseURL(
-        environment: [String: String] = ProcessInfo.processInfo.environment
-    ) -> URL? {
-        let trimmedHost = environment["VALARTTSD_BIND_HOST"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedPort = environment["VALARTTSD_BIND_PORT"]?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let host = (trimmedHost?.isEmpty == false ? trimmedHost : nil) ?? "127.0.0.1"
-        let port = (trimmedPort?.isEmpty == false ? trimmedPort : nil) ?? "8787"
-        return URL(string: "http://\(host):\(port)")
     }
 
     // MARK: - Human-readable output

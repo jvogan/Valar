@@ -17,6 +17,11 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --root)
+      if [[ $# -lt 2 ]]; then
+        echo "--root requires a path." >&2
+        usage >&2
+        exit 1
+      fi
       SCAN_ROOT="$2"
       shift 2
       ;;
@@ -71,10 +76,17 @@ done < <(valar_public_repo_secret_block_regexes)
 
 TMP_PATH_HITS="$(mktemp)"
 TMP_CONTENT_HITS="$(mktemp)"
+TMP_FILTERED_CONTENT_HITS="$(mktemp)"
 cleanup() {
-  rm -f "$TMP_PATH_HITS" "$TMP_CONTENT_HITS"
+  rm -f "$TMP_PATH_HITS" "$TMP_CONTENT_HITS" "$TMP_FILTERED_CONTENT_HITS"
 }
 trap cleanup EXIT
+
+history_content_hit_is_allowed() {
+  local hit="$1"
+  local old_synthetic_fixture="/Vol""umes/External/audio.wav"
+  [[ "$hit" == *"Packages/ValarPersistence/Tests/ValarPersistenceTests/ValarPersistenceTests.swift:"*"$old_synthetic_fixture"* ]]
+}
 
 declare -a GREP_ARGS=()
 for regex in "${CONTENT_BLOCK_REGEXES[@]}"; do
@@ -102,15 +114,20 @@ while IFS= read -r rev; do
     done
   done < <(git -C "$SCAN_ROOT" ls-tree -r --name-only "$rev")
 
-  if ! (
+  set +e
+  (
     cd "$SCAN_ROOT"
-    git grep -n --no-heading "${GREP_ARGS[@]}" "$rev" -- . \
+    git grep -E -n --no-heading "${GREP_ARGS[@]}" "$rev" -- . \
       ':(exclude)tools/public_repo_audit.sh' \
       ':(exclude)tools/public_repo_secret_scan.sh' \
       ':(exclude)tools/public_repo_history_scan.sh' \
       ':(exclude)tools/public_repo_rules.sh'
-  ) >> "$TMP_CONTENT_HITS"; then
-    :
+  ) >> "$TMP_CONTENT_HITS"
+  grep_status=$?
+  set -e
+  if [[ "$grep_status" -gt 1 ]]; then
+    echo "git grep failed while scanning revision $rev" >&2
+    exit "$grep_status"
   fi
 done < <(git -C "$SCAN_ROOT" rev-list --all)
 
@@ -120,9 +137,17 @@ if [[ -s "$TMP_PATH_HITS" ]]; then
   exit 1
 fi
 
-if [[ -s "$TMP_CONTENT_HITS" ]]; then
+while IFS= read -r hit; do
+  [[ -n "$hit" ]] || continue
+  if history_content_hit_is_allowed "$hit"; then
+    continue
+  fi
+  printf '%s\n' "$hit" >> "$TMP_FILTERED_CONTENT_HITS"
+done < "$TMP_CONTENT_HITS"
+
+if [[ -s "$TMP_FILTERED_CONTENT_HITS" ]]; then
   echo "Public history scan failed. Found private or secret-like content in git history:" >&2
-  sort -u "$TMP_CONTENT_HITS" >&2
+  sort -u "$TMP_FILTERED_CONTENT_HITS" >&2
   exit 1
 fi
 

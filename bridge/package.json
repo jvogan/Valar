@@ -3,17 +3,25 @@
   "version": "1.0.0",
   "description": "Public MCP bridge server for the local Valar daemon",
   "private": true,
-  "packageManager": "bun@1.2.13",
+  "packageManager": "bun@1.3.14",
   "scripts": {
+    "setup": "bun install --frozen-lockfile --ignore-scripts",
     "start": "bun server.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.26.0",
-    "zod": "^3.22.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@types/bun": "latest",
-    "typescript": "^5.0.0"
+    "@types/bun": "1.3.14",
+    "typescript": "^5.9.3"
+  },
+  "overrides": {
+    "@hono/node-server": "^1.19.14",
+    "fast-uri": "^3.1.2",
+    "hono": "^4.12.18",
+    "ip-address": "^10.2.0",
+    "path-to-regexp": "^8.4.2"
   }
 }

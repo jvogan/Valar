@@ -130,12 +130,12 @@ if [[ "$with_bridge" == "1" && -f "bridge/package.json" ]]; then
   echo "Typechecking MCP bridge"
   (
     cd bridge
-    bun install
+    bun install --frozen-lockfile
     bun run typecheck
   )
 fi
 
-cli_bin="$repo_root/apps/ValarCLI/.build/arm64-apple-macosx/debug/valartts"
+cli_bin="$(swift build --package-path apps/ValarCLI --show-bin-path)/valartts"
 [[ -x "$cli_bin" ]] || {
   echo "Error: expected CLI binary at $cli_bin" >&2
   exit 1

@@ -4,6 +4,13 @@ import ValarCore
 actor DaemonOperationQueue {
     typealias OperationWork = @Sendable () async throws -> Void
 
+    enum CancelResult: Sendable {
+        case cancelled(DaemonOperationStatusDTO)
+        case running(DaemonOperationStatusDTO)
+        case alreadyFinished(DaemonOperationStatusDTO)
+        case notFound
+    }
+
     private struct QueuedOperation: Sendable {
         let id: String
         let work: OperationWork
@@ -60,6 +67,36 @@ actor DaemonOperationQueue {
             return nil
         }
         return Self.makeDTO(from: record)
+    }
+
+    func cancel(id: String) -> CancelResult {
+        guard var record = records[id] else {
+            return .notFound
+        }
+
+        if let pendingIndex = pending.firstIndex(where: { $0.id == id }) {
+            pending.remove(at: pendingIndex)
+            record.status = "cancelled"
+            record.finishedAt = Date()
+            record.error = "Operation cancelled before it started."
+            records[id] = record
+            trimCompletedHistory()
+            return .cancelled(Self.makeDTO(from: record))
+        }
+
+        switch record.status {
+        case "queued":
+            record.status = "cancelled"
+            record.finishedAt = Date()
+            record.error = "Operation cancelled before it started."
+            records[id] = record
+            trimCompletedHistory()
+            return .cancelled(Self.makeDTO(from: record))
+        case "running":
+            return .running(Self.makeDTO(from: record))
+        default:
+            return .alreadyFinished(Self.makeDTO(from: record))
+        }
     }
 
     func queueState() -> DaemonQueueStateDTO {

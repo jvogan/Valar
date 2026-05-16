@@ -31,11 +31,26 @@ export interface PassphraseExtractionResult {
 }
 
 function stripPhrase(transcript: string, phrase: string): string {
-  const idx = transcript.toLowerCase().indexOf(phrase.toLowerCase());
-  if (idx === -1) return transcript;
-  return (transcript.slice(0, idx) + transcript.slice(idx + phrase.length))
+  const regex = phraseRegex(phrase);
+  const match = regex.exec(transcript);
+  if (!match) return transcript;
+  const idx = match.index;
+  const matchedPhrase = match[0];
+  return (transcript.slice(0, idx) + transcript.slice(idx + matchedPhrase.length))
     .replace(/\s{2,}/g, " ")
     .trim();
+}
+
+function phraseRegex(phrase: string): RegExp {
+  const words = phrase.trim().split(/\s+/).map(normalise).filter(Boolean);
+  const escapedWords = words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return new RegExp(`\\b${escapedWords.join("[^a-z0-9]+")}\\b`, "i");
+}
+
+function transcriptContainsPhrase(transcript: string, phrase: string): boolean {
+  if (phrase.trim().length === 0) return false;
+  const regex = phraseRegex(phrase);
+  return regex.test(transcript);
 }
 
 function normalise(word: string): string {
@@ -88,11 +103,16 @@ export function extractPassphrase(
     maxGapSeconds = 0.5,
   } = config;
 
-  const phraseInTranscript = transcript
-    .toLowerCase()
-    .includes(phrase.toLowerCase());
+  const phraseWords = phrase.trim().split(/\s+/).map(normalise).filter(Boolean);
+  if (phraseWords.length === 0) {
+    return {
+      passphraseFound: false,
+      confidence: null,
+      strippedTranscript: transcript,
+    };
+  }
 
-  if (!phraseInTranscript) {
+  if (!requireAlignerVerification && !transcriptContainsPhrase(transcript, phrase)) {
     return {
       passphraseFound: false,
       confidence: null,
@@ -109,7 +129,6 @@ export function extractPassphrase(
       };
     }
 
-    const phraseWords = phrase.trim().split(/\s+/).filter(Boolean);
     const run = findPhraseTokenRun(alignment.tokens, phraseWords);
 
     if (!run) {
@@ -155,13 +174,13 @@ export function extractPassphrase(
     return {
       passphraseFound: true,
       confidence: avgConfidence,
-      strippedTranscript: stripPhrase(transcript, phrase),
+      strippedTranscript: stripPhrase(transcript, phraseWords.join(" ")),
     };
   }
 
   return {
     passphraseFound: true,
     confidence: null,
-    strippedTranscript: stripPhrase(transcript, phrase),
+    strippedTranscript: stripPhrase(transcript, phraseWords.join(" ")),
   };
 }

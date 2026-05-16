@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { daemonUnavailableMessage, sanitizeMessage } from "../security/redaction.js";
+import { daemonFetch, readDaemonJSON, readDaemonText } from "../security/daemon.js";
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -27,7 +28,7 @@ export function register(
         .boolean()
         .optional()
         .describe(
-          "Allow the daemon to download model artifacts if they are not already cached locally. Defaults to true.",
+          "Allow the daemon to download model artifacts if they are not already cached locally. Defaults to false.",
         ),
       refresh_cache: z
         .boolean()
@@ -39,13 +40,13 @@ export function register(
     async ({ model_id, allow_download, refresh_cache }) => {
       const body: Record<string, unknown> = {
         model: model_id,
-        allow_download: allow_download ?? true,
+        allow_download: allow_download ?? false,
       };
       if (refresh_cache !== undefined) body.refresh_cache = refresh_cache;
 
       let res: Response;
       try {
-        res = await fetch(daemonURL("/models/install"), {
+        res = await daemonFetch(daemonURL("/models/install"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
@@ -55,7 +56,7 @@ export function register(
       }
 
       if (res.status === 409) {
-        const json = await res.json().catch(() => ({})) as Record<string, unknown>;
+        const json = await readDaemonJSON<Record<string, unknown>>(res).catch(() => ({}));
         return err(
           `Model '${model_id}' is not cached locally and requires a network download.\n` +
             `Retry with allow_download=true, or use the CLI instead:\n` +
@@ -65,11 +66,11 @@ export function register(
       }
 
       if (!res.ok) {
-        const text = await res.text().catch(() => "");
+        const text = await readDaemonText(res).catch(() => "");
         return err(`Model installation failed (${res.status}): ${text}`);
       }
 
-      const result = await res.json();
+      const result = await readDaemonJSON(res);
       return ok(JSON.stringify(result, null, 2));
     },
   );

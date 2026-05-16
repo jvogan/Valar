@@ -4,24 +4,24 @@ This doc is for maintainers preparing the public `Valar` repo for GitHub publica
 
 ## Maintenance Model
 
-The public repo is a fresh-history derived repo.
+The public repo is a fresh-history publication repo.
 
-- changes land in the canonical source tree first
-- the public tree is regenerated or synced from that source
-- accepted public PRs are ported back into the canonical source tree before the next export
+- changes should be staged in a clean source tree first
+- the public tree should be regenerated or synced from that clean source
+- accepted public PRs should be carried forward into the source tree before the next publication update
 
-Do not publish the canonical private history directly.
+Do not publish non-public source history directly.
 
 ## Public Release Flow
 
-1. Land the intended change in the canonical source tree.
-2. Regenerate or sync the public `Valar` tree from that canonical source.
+1. Land the intended change in a clean source tree.
+2. Regenerate or sync the public `Valar` tree from that source.
 3. Run the public release gates in the public tree:
    - `make audit-and-secret-scan`
    - `make validate-public`
    - `make validate-bridge` when `bridge/` changed
    - `python3 tools/generate_launch_media.py` when launch-facing visuals need refresh
-4. Run a private-side history scan as an advisory first-publication check for the canonical source history.
+4. If content was imported from another tree, run a history scan before publication.
 5. Verify the public repo worktree is clean:
    - no `bridge/node_modules`
    - no build outputs
@@ -62,4 +62,4 @@ The audit catches private/operator content and workstation assumptions in the cu
 
 ## First Public Commit
 
-The first public commit should be created directly in the public `Valar` repo from the exported tree. Do not attach or mirror the canonical private git history.
+The first public commit should be created directly in the public `Valar` repo from the exported tree. Do not attach or mirror non-public git history.

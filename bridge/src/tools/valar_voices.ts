@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { daemonUnavailableMessage, sanitizeMessage } from "../security/redaction.js";
+import { daemonFetch, readDaemonJSON, readDaemonText } from "../security/daemon.js";
 
 function ok(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -19,12 +20,12 @@ export function register(
     {},
     async () => {
       try {
-        const res = await fetch(daemonURL("/voices"));
+        const res = await daemonFetch(daemonURL("/voices"));
         if (!res.ok) {
-          const text = await res.text().catch(() => "");
+          const text = await readDaemonText(res).catch(() => "");
           return err(`Failed to list voices (${res.status}): ${text}`);
         }
-        const voices = await res.json();
+        const voices = await readDaemonJSON(res);
         return ok(JSON.stringify(voices, null, 2));
       } catch {
         return err(daemonUnavailableMessage());

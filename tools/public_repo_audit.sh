@@ -25,10 +25,20 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --root)
+      if [[ $# -lt 2 ]]; then
+        echo "--root requires a path." >&2
+        usage >&2
+        exit 1
+      fi
       SCAN_ROOT="$2"
       shift 2
       ;;
     --exclude-file)
+      if [[ $# -lt 2 ]]; then
+        echo "--exclude-file requires a path." >&2
+        usage >&2
+        exit 1
+      fi
       EXCLUDE_FILE="$2"
       shift 2
       ;;
@@ -51,6 +61,11 @@ fi
 
 if [[ ! -f "$RULES_FILE" ]]; then
   echo "Rule file not found: $RULES_FILE" >&2
+  exit 1
+fi
+
+if ! command -v rg >/dev/null 2>&1; then
+  echo "Public-repo audit requires ripgrep (rg) on PATH." >&2
   exit 1
 fi
 
@@ -159,12 +174,19 @@ if [[ -n "${VALAR_PUBLIC_AUDIT_EXTRA_PATTERN:-}" ]]; then
   RG_ARGS+=(-e "${VALAR_PUBLIC_AUDIT_EXTRA_PATTERN}")
 fi
 
-if ! (
-  cd "$SCAN_ROOT"
-  xargs -0 rg -n --no-heading "${RG_ARGS[@]}" < "$TMP_FILE_LIST"
-) > "$TMP_HITS"; then
-  :
-fi
+while IFS= read -r -d '' rel; do
+  set +e
+  (
+    cd "$SCAN_ROOT"
+    rg -n --no-heading "${RG_ARGS[@]}" -- "$rel"
+  ) >> "$TMP_HITS"
+  scan_status=$?
+  set -e
+  if [[ "$scan_status" -gt 1 ]]; then
+    echo "Public-repo audit failed while scanning: $rel" >&2
+    exit 1
+  fi
+done < "$TMP_FILE_LIST"
 
 if [[ -s "$TMP_HITS" ]]; then
   echo "Public-repo audit failed. Found local/private markers or secret-like content:" >&2

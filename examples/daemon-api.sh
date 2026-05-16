@@ -30,9 +30,17 @@ if ! curl -sf "$DAEMON/v1/health" > /dev/null 2>&1; then
 fi
 
 # Synthesize via the OpenAI-compatible endpoint
+request_body="$(MODEL="$MODEL" TEXT="$TEXT" python3 - <<'PY'
+import json
+import os
+
+print(json.dumps({"model": os.environ["MODEL"], "input": os.environ["TEXT"]}))
+PY
+)"
+
 curl -fSs -X POST "$DAEMON/v1/audio/speech" \
   -H "Content-Type: application/json" \
-  -d "{\"model\": \"$MODEL\", \"input\": \"$TEXT\"}" \
+  -d "$request_body" \
   -o "$OUTPUT"
 
 echo "Done. Play it with:"

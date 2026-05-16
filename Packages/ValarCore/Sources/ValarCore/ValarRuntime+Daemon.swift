@@ -464,7 +464,14 @@ public extension ValarRuntime {
             if sourceKind == .remoteURL, !allowDownload {
                 throw RouteModelError.refreshRequiresDownload(id)
             }
-            _ = try await modelInstaller.uninstall(modelID: identifier)
+            if sourceKind == .remoteURL,
+               try await modelPackRegistry.installedRecord(for: identifier.rawValue) != nil {
+                do {
+                    try await modelInstaller.verifyInstalledArtifacts(manifest: manifest)
+                } catch {
+                    _ = try await modelInstaller.uninstall(modelID: identifier)
+                }
+            }
             _ = try await modelInstaller.purgeSharedCaches(for: identifier)
         }
 

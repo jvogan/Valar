@@ -887,7 +887,7 @@ public struct ModelInstallValidationReport: Sendable, Equatable {
     }
 }
 
-public enum ModelInstallerError: Error, Equatable {
+public enum ModelInstallerError: Error, Equatable, LocalizedError {
     case validationFailed([String])
     case installedRecordMissing(String)
     case installedPackMissing(String)
@@ -895,6 +895,25 @@ public enum ModelInstallerError: Error, Equatable {
     case downloadFailed(String)
     case checksumMismatch(artifactPath: String, expected: String, actual: String)
     case missingChecksum(artifactPath: String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .validationFailed(let messages):
+            return "Model manifest validation failed: \(messages.joined(separator: "; "))"
+        case .installedRecordMissing(let modelID):
+            return "Installed model record was not created for \(modelID)."
+        case .installedPackMissing(let path):
+            return "Installed model pack is missing at \(path)."
+        case .invalidRemoteSourceLocation(let location):
+            return "Invalid remote model source: \(location)."
+        case .downloadFailed(let message):
+            return message
+        case .checksumMismatch(let artifactPath, let expected, let actual):
+            return "Checksum mismatch for \(artifactPath): expected \(expected), got \(actual)."
+        case .missingChecksum(let artifactPath):
+            return "Remote artifact '\(artifactPath)' is missing a SHA-256 checksum."
+        }
+    }
 }
 
 public enum ModelInstallMode: Sendable, Equatable {
@@ -1063,7 +1082,7 @@ public actor ModelInstaller {
         for artifact in uncheckedArtifacts {
             issues.append(.init(
                 severity: .warning,
-                message: "\(Self.checksumWarningLabel(for: artifact.kind)) artifact '\(artifact.id)' is missing a SHA-256 checksum; Valar can install it, but cannot locally verify the downloaded file"
+                message: "\(Self.checksumWarningLabel(for: artifact.kind)) artifact '\(artifact.id)' is missing a SHA-256 checksum; Valar will not install the file from a remote source until a checksum is declared"
             ))
         }
         do {
@@ -1216,6 +1235,37 @@ public actor ModelInstaller {
         return record
     }
 
+    public func verifyInstalledArtifacts(manifest: ValarPersistence.ModelPackManifest) throws {
+        let packDirectory = try paths.modelPackDirectory(familyID: manifest.familyID, modelID: manifest.modelID)
+
+        for artifact in manifest.artifactSpecs where !artifact.relativePath.hasSuffix("/") {
+            let artifactURL = packDirectory.appendingPathComponent(artifact.relativePath, isDirectory: false)
+            try ValarAppPaths.validateContainment(artifactURL, within: packDirectory)
+
+            guard fileManager.fileExists(atPath: artifactURL.path) else {
+                if artifact.required {
+                    throw ModelInstallerError.downloadFailed(
+                        "Installed artifact '\(artifact.relativePath)' is missing from the current model pack."
+                    )
+                }
+                continue
+            }
+
+            if let checksum = artifact.checksum {
+                let actualChecksum = try sha256Hex(for: artifactURL)
+                guard actualChecksum.caseInsensitiveCompare(checksum) == .orderedSame else {
+                    throw ModelInstallerError.checksumMismatch(
+                        artifactPath: artifact.relativePath,
+                        expected: checksum,
+                        actual: actualChecksum
+                    )
+                }
+            } else if Self.remoteChecksumRequiredKinds.contains(artifact.kind) {
+                throw ModelInstallerError.missingChecksum(artifactPath: artifact.relativePath)
+            }
+        }
+    }
+
     public func purgeSharedCaches(for modelID: ModelIdentifier) throws -> [String] {
         let hubRoot = Self.resolveHFHubCacheRoot(fileManager: fileManager, hfCacheRoot: hfCacheRoot)
         let standardDirectory = hubRoot.appendingPathComponent(Self.hfHubRepoDirectoryName(for: modelID.rawValue), isDirectory: true)
@@ -1286,6 +1336,10 @@ public actor ModelInstaller {
                     let weight = 1 / totalArtifacts
                     let destinationURL = stagingDirectory.appendingPathComponent(artifact.relativePath, isDirectory: false)
                     try ValarAppPaths.validateContainment(destinationURL, within: stagingDirectory)
+                    let requiresChecksum = Self.remoteChecksumRequiredKinds.contains(artifact.kind)
+                    guard !artifact.required || artifact.checksum != nil else {
+                        throw ModelInstallerError.missingChecksum(artifactPath: artifact.relativePath)
+                    }
 
                     try fileManager.createDirectory(
                         at: destinationURL.deletingLastPathComponent(),
@@ -1347,12 +1401,9 @@ public actor ModelInstaller {
                                 actual: actualChecksum
                             )
                         }
-                    } else if artifact.checksum != nil && hfCached == nil {
-                        // Catalog declared a checksum but it wasn't verified above —
-                        // this shouldn't happen, but guard against it.
+                    } else if requiresChecksum {
+                        try? removeIfPresent(destinationURL)
                         throw ModelInstallerError.missingChecksum(artifactPath: artifact.relativePath)
-                        // Note: models without pre-computed checksums (checksum == nil)
-                        // are trusted when downloaded directly from HuggingFace.
                     }
                 }
             }

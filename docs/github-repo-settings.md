@@ -66,4 +66,4 @@ Use `assets/media/social-preview.png` as the social preview image when the GitHu
 
 ## Release Boundary
 
-The public repo should keep fresh public history only. Do not mirror the canonical private git history into the public repository.
+The public repo should keep fresh public history only. Do not mirror non-public source history into the public repository.
