@@ -10,7 +10,7 @@ let package = Package(
         .executable(name: "valarttsd", targets: ["valarttsd"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/hummingbird-project/hummingbird.git", exact: "2.21.1"),
+        .package(url: "https://github.com/hummingbird-project/hummingbird.git", exact: "2.22.0"),
         .package(path: "../../Packages/ValarCore"),
         .package(path: "../../Packages/ValarMLX"),
         .package(path: "../../Packages/ValarAudio"),
