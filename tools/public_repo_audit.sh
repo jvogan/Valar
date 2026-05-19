@@ -94,7 +94,12 @@ path_is_excluded() {
 
 collect_files() {
   local root="$1"
-  if git -C "$root" rev-parse --show-toplevel >/dev/null 2>&1 \
+  local root_abs
+  local git_top
+  root_abs="$(cd "$root" && pwd -P)"
+  git_top="$(git -C "$root" rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$git_top" ]] \
+    && [[ "$(cd "$git_top" && pwd -P)" == "$root_abs" ]] \
     && git -C "$root" rev-parse --verify HEAD >/dev/null 2>&1; then
     git -C "$root" ls-files
   else
@@ -131,7 +136,10 @@ while IFS= read -r rel; do
   [[ -n "$rel" ]] || continue
   [[ -f "$SCAN_ROOT/$rel" ]] || continue
   case "$rel" in
-    tools/public_repo_audit.sh|tools/public_repo_rules.sh|tools/public_repo_secret_scan.sh)
+    .gitleaks.toml|.gitleaksignore)
+      continue
+      ;;
+    tools/public_repo_audit.sh|tools/public_repo_history_scan.sh|tools/public_repo_rules.sh|tools/public_repo_secret_scan.sh)
       continue
       ;;
   esac

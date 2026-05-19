@@ -53,7 +53,7 @@ The public v1 working set is intentionally narrow.
 
 | Family | Public posture | Rough local footprint | Best first use |
 | --- | --- | --- | --- |
-| `Soprano` | Supported | About `285 MB` | Fastest first success |
+| `Soprano` | Supported | About `285 MB` | Smallest first success |
 | `Qwen` | Supported | About `1.0 GB` to `4.2 GB`, depending on the lane | Main TTS, ASR, and alignment lane |
 | `VibeVoice` | Compatibility preview | About `700 MB` | Preset-voice realtime TTS, English-first |
 | `Voxtral` | Preview, explicit non-commercial opt-in | About `2.4 GB` | Optional preset-voice multilingual lane |
@@ -62,7 +62,7 @@ Footprint values are rough planning numbers and can drift as upstream packs chan
 
 ## What To Install First
 
-- Install `Soprano` first if you want the fastest proof that your machine is working.
+- Install `Soprano` first if you want the smallest proof that your machine is working.
 - Install `Qwen Base` first if your real target is long-form narration or the main public TTS lane.
 - Install `Qwen ASR` or `Qwen ForcedAligner` only when you need transcription or timestamps.
 - Install `VibeVoice` only when you specifically want preset voices and accept preview-quality multilingual behavior.

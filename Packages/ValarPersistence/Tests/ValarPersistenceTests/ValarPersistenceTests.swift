@@ -317,6 +317,63 @@ final class ValarPersistenceTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: bundleURL.appendingPathExtension("saving").path))
     }
 
+    func testProjectBundleWriterRejectsSymlinkedChildDirectoryOnResave() throws {
+        let root = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        let project = ProjectRecord(
+            id: UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
+            title: "Narrated Chapter One",
+            createdAt: Date(timeIntervalSince1970: 1_710_000_000),
+            updatedAt: Date(timeIntervalSince1970: 1_710_000_600),
+            notes: "Opening chapter"
+        )
+        let chapter = ChapterRecord(
+            id: UUID(uuidString: "11111111-2222-3333-4444-555555555555")!,
+            projectID: project.id,
+            index: 0,
+            title: "Chapter 1",
+            script: "A beginning.",
+            speakerLabel: "Narrator",
+            estimatedDurationSeconds: 12.5
+        )
+        let snapshot = ProjectBundleSnapshot(
+            project: project,
+            modelID: "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+            renderSynthesisOptions: RenderSynthesisOptions(),
+            chapters: [chapter],
+            renderJobs: [],
+            exports: []
+        )
+        let bundleURL = root
+            .appendingPathComponent("Narrated Chapter One", isDirectory: true)
+            .appendingPathExtension("valarproject")
+        let location = ValarProjectBundleLocation(
+            projectID: project.id,
+            title: project.title,
+            bundleURL: bundleURL
+        )
+        let writer = ProjectBundleWriter()
+        _ = try writer.write(snapshot, to: location, createdAt: Date(timeIntervalSince1970: 1_710_004_000))
+
+        let outsideDirectory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: outsideDirectory) }
+        try FileManager.default.removeItem(at: location.assetsDirectory)
+        try FileManager.default.createSymbolicLink(at: location.assetsDirectory, withDestinationURL: outsideDirectory)
+
+        XCTAssertThrowsError(
+            try writer.write(snapshot, to: location, createdAt: Date(timeIntervalSince1970: 1_710_005_000))
+        ) { error in
+            XCTAssertEqual(
+                error as? ValarPathValidationError,
+                .symbolicLinkDirectoryNotAllowed(path: location.assetsDirectory.path)
+            )
+        }
+        XCTAssertTrue(ValarAppPaths.isSymbolicLink(location.assetsDirectory))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outsideDirectory.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: bundleURL.appendingPathExtension("saving").path))
+    }
+
     func testProjectBundleSaveFailureCleansTempAndKeepsOriginalBundle() throws {
         let root = try makeTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: root) }

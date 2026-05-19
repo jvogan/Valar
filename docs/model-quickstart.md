@@ -6,7 +6,7 @@ Use `swift run --package-path apps/ValarCLI valartts ...` if you have not instal
 
 ## Two-Command Newcomer Path
 
-For the fastest first success in a clean clone:
+For the smallest first success in a clean clone:
 
 ```bash
 make quickstart
@@ -67,7 +67,7 @@ make validate-bridge-live
 make validate-bridge-live-blessed
 ```
 
-## Soprano: Fastest First Run
+## Soprano: Smallest First Run
 
 ```bash
 make first-clip
@@ -123,7 +123,7 @@ swift run --package-path apps/ValarCLI valartts speak \
   --output "${TMPDIR:-/tmp}/qwen-stable.wav"
 ```
 
-Qwen `CustomVoice` remains the named-speaker lane, but the fastest public voice-creation path is `VoiceDesign` first and optional `stabilize` second.
+Qwen `CustomVoice` remains the named-speaker lane, but the simplest public voice-creation path is `VoiceDesign` first and optional `stabilize` second.
 
 ### Qwen ASR
 

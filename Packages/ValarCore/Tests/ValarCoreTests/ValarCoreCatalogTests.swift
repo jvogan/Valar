@@ -186,6 +186,37 @@ final class ValarCoreCatalogTests: XCTestCase {
         XCTAssertFalse(tada.cachedOnDisk)
     }
 
+    func testModelCatalogDoesNotMarkHFHubSymlinkEscapeAsCached() async throws {
+        let cacheRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        let outsideDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideDirectory, withIntermediateDirectories: true)
+        let outsideArtifact = outsideDirectory.appendingPathComponent("model.safetensors", isDirectory: false)
+        try Data("outside-cache".utf8).write(to: outsideArtifact)
+
+        let entry = makeSingleArtifactCatalogEntry(modelID: "example/Symlinked-Model")
+        try writeHFHubSnapshotSymlink(
+            cacheRoot: cacheRoot,
+            modelID: entry.id.rawValue,
+            relativePath: "model.safetensors",
+            destination: outsideArtifact
+        )
+
+        let catalog = ModelCatalog(
+            supportedSource: StaticSupportedCatalogSource(records: [entry]),
+            hfCacheRoot: cacheRoot,
+            visibilityPolicyProvider: { CatalogVisibilityPolicy(allowsNonCommercialModels: false) }
+        )
+
+        let models = try await catalog.refresh()
+        let model = try XCTUnwrap(models.first(where: { $0.id == entry.id }))
+
+        XCTAssertEqual(model.installState, .supported)
+        XCTAssertFalse(model.cachedOnDisk)
+    }
+
     func testModelCatalogMarksVibeVoiceSnapshotAsCachedWhenQwenTokenizerFallbackIsCached() async throws {
         let cacheRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -589,6 +620,110 @@ final class ValarCoreCatalogTests: XCTestCase {
         XCTAssertFalse(capabilitiesAfterUninstall.contains(result.descriptor))
     }
 
+    func testModelInstallerUninstallDerivesPackDirectoryInsteadOfTrustingPersistedPath() async throws {
+        let manifest = makePersistenceManifest(
+            modelID: "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+            familyID: "qwen3_tts",
+            displayName: "Qwen3 TTS Base",
+            capabilities: ["speech.synthesis", "text.tokenization"],
+            backendKinds: ["mlx"]
+        )
+        let paths = try makeAppPaths()
+        try materializeInstalledPack(paths: paths, manifest: manifest)
+
+        let outsideDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let tamperedPackDirectory = outsideDirectory.appendingPathComponent("do-not-remove", isDirectory: true)
+        try FileManager.default.createDirectory(at: tamperedPackDirectory, withIntermediateDirectories: true)
+        try Data("outside".utf8).write(to: tamperedPackDirectory.appendingPathComponent("sentinel.txt"))
+
+        let receipt = ModelInstallReceipt(
+            modelID: manifest.modelID,
+            familyID: manifest.familyID,
+            sourceKind: .localFile,
+            sourceLocation: "/tmp/qwen-base.valarmodel",
+            installedModelPath: tamperedPackDirectory.path,
+            manifestPath: tamperedPackDirectory.appendingPathComponent("manifest.json").path,
+            artifactCount: manifest.artifactSpecs.count
+        )
+        let record = InstalledModelRecord(
+            id: receipt.id,
+            familyID: manifest.familyID,
+            modelID: manifest.modelID,
+            displayName: manifest.displayName,
+            installedPath: tamperedPackDirectory.path,
+            manifestPath: tamperedPackDirectory.appendingPathComponent("manifest.json").path,
+            artifactCount: manifest.artifactSpecs.count,
+            sourceKind: .localFile
+        )
+        let registry = ModelPackRegistry(
+            paths: paths,
+            manifests: [manifest],
+            records: [record],
+            receipts: [receipt]
+        )
+        let installer = ModelInstaller(registry: registry, paths: paths)
+
+        let removed = try await installer.uninstall(modelID: ModelIdentifier(manifest.modelID))
+        let expectedPackDirectory = try paths.modelPackDirectory(
+            familyID: manifest.familyID,
+            modelID: manifest.modelID
+        )
+
+        XCTAssertEqual(removed?.installedPath, tamperedPackDirectory.path)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: expectedPackDirectory.path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: tamperedPackDirectory.path))
+        let installedAfterRemoval = await registry.installedRecord(for: manifest.modelID)
+        XCTAssertNil(installedAfterRemoval)
+    }
+
+    func testModelInstallerUninstallRejectsSymlinkedPackDirectory() async throws {
+        let manifest = makePersistenceManifest(
+            modelID: "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+            familyID: "qwen3_tts",
+            displayName: "Qwen3 TTS Base",
+            capabilities: ["speech.synthesis", "text.tokenization"],
+            backendKinds: ["mlx"]
+        )
+        let paths = try makeAppPaths()
+        let registry = ModelPackRegistry(paths: paths)
+        _ = try await registry.install(
+            manifest: manifest,
+            sourceKind: .localFile,
+            sourceLocation: "/tmp/qwen-base.valarmodel"
+        )
+
+        let packDirectory = try paths.modelPackDirectory(
+            familyID: manifest.familyID,
+            modelID: manifest.modelID
+        )
+        let outsideDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideDirectory, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(
+            at: packDirectory.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createSymbolicLink(at: packDirectory, withDestinationURL: outsideDirectory)
+
+        let installer = ModelInstaller(registry: registry, paths: paths)
+
+        do {
+            _ = try await installer.uninstall(modelID: ModelIdentifier(manifest.modelID))
+            XCTFail("Expected symlinked pack removal to be rejected")
+        } catch let error as ModelInstallerError {
+            guard case .unsafeFilesystemPath(let message) = error else {
+                return XCTFail("Expected unsafe filesystem path error, got \(error)")
+            }
+            XCTAssertTrue(message.contains("Refusing to remove unsafe model pack directory"))
+        }
+
+        let installedAfterFailedRemoval = await registry.installedRecord(for: manifest.modelID)
+        XCTAssertNotNil(installedAfterFailedRemoval)
+        XCTAssertTrue(ValarAppPaths.isSymbolicLink(packDirectory))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: outsideDirectory.path))
+    }
+
     func testModelInstallerDownloadsArtifactsPublishesProgressAndWritesManifest() async throws {
         let paths = try makeAppPaths()
         let cacheRoot = FileManager.default.temporaryDirectory
@@ -696,6 +831,8 @@ final class ValarCoreCatalogTests: XCTestCase {
         let cacheRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        let configData = Data(#"{"model_type":"qwen3"}"#.utf8)
+        let weightsData = Data("pretend-weights".utf8)
 
         let manifest = ValarPersistence.ModelPackManifest(
             familyID: "qwen3_tts",
@@ -709,20 +846,22 @@ final class ValarCoreCatalogTests: XCTestCase {
                 ModelPackArtifact(
                     id: "config",
                     kind: "config",
-                    relativePath: "config.json"
+                    relativePath: "config.json",
+                    checksum: sha256Hex(for: configData),
+                    byteCount: configData.count
                 ),
                 ModelPackArtifact(
                     id: "weights",
                     kind: "weights",
-                    relativePath: "model.safetensors"
+                    relativePath: "model.safetensors",
+                    checksum: sha256Hex(for: weightsData),
+                    byteCount: weightsData.count
                 ),
             ],
             licenseName: "Model license",
             licenseURL: "https://example.com/license"
         )
 
-        let configData = Data(#"{"model_type":"qwen3"}"#.utf8)
-        let weightsData = Data("pretend-weights".utf8)
         try writeHFHubSnapshotArtifact(
             cacheRoot: cacheRoot,
             modelID: manifest.modelID,
@@ -767,11 +906,78 @@ final class ValarCoreCatalogTests: XCTestCase {
         XCTAssertEqual(installedFileID.inode, cachedFileID.inode)
     }
 
+    func testModelInstallerRejectsCachedArtifactSymlinkEscapingHFCache() async throws {
+        let paths = try makeAppPaths()
+        let cacheRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+
+        let outsideDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: outsideDirectory, withIntermediateDirectories: true)
+        let outsideData = Data("outside-cache".utf8)
+        let outsideArtifact = outsideDirectory.appendingPathComponent("model.safetensors", isDirectory: false)
+        try outsideData.write(to: outsideArtifact)
+
+        let manifest = ValarPersistence.ModelPackManifest(
+            familyID: "qwen3_tts",
+            modelID: "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+            displayName: "Qwen3 TTS Base",
+            capabilities: ["speech.synthesis"],
+            backendKinds: ["mlx"],
+            artifactSpecs: [
+                ModelPackArtifact(
+                    id: "weights",
+                    kind: "weights",
+                    relativePath: "model.safetensors",
+                    checksum: sha256Hex(for: outsideData),
+                    byteCount: outsideData.count
+                ),
+            ],
+            licenseName: "Model license",
+            licenseURL: "https://example.com/license"
+        )
+        try writeHFHubSnapshotSymlink(
+            cacheRoot: cacheRoot,
+            modelID: manifest.modelID,
+            relativePath: "model.safetensors",
+            destination: outsideArtifact
+        )
+
+        let installer = ModelInstaller(
+            registry: ModelPackRegistry(paths: paths),
+            paths: paths,
+            hfCacheRoot: cacheRoot,
+            sessionFactory: makeMockDownloadSession
+        )
+
+        do {
+            _ = try await installer.install(
+                manifest: manifest,
+                sourceKind: .remoteURL,
+                sourceLocation: "https://huggingface.co/\(manifest.modelID)",
+                mode: .downloadArtifacts
+            )
+            XCTFail("Expected escaped cached artifact symlink to be rejected")
+        } catch let error as ModelInstallerError {
+            guard case .unsafeFilesystemPath(let message) = error else {
+                return XCTFail("Expected unsafe filesystem path error, got \(error)")
+            }
+            XCTAssertTrue(message.contains("outside the Hugging Face cache"))
+        }
+    }
+
     func testModelInstallerPrefersHFHubSnapshotOverMLXAudioCacheWhenBothExist() async throws {
         let paths = try makeAppPaths()
         let cacheRoot = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        let configData = Data(#"{"model_type":"qwen3"}"#.utf8)
+        let hubWeightsData = Data("hub-weights".utf8)
+        let tokenizerData = Data(#"{"tokenizer":"hub"}"#.utf8)
+        let mlxAudioConfigData = Data(#"{"model_type":"qwen3"}"#.utf8)
+        let mlxAudioWeightsData = Data("mlx-audio-weights".utf8)
+        let mlxAudioTokenizerData = Data(#"{"tokenizer":"mlx-audio"}"#.utf8)
 
         let manifest = ValarPersistence.ModelPackManifest(
             familyID: "qwen3_tts",
@@ -782,9 +988,27 @@ final class ValarCoreCatalogTests: XCTestCase {
             tokenizerType: "huggingface",
             sampleRate: 24_000,
             artifactSpecs: [
-                ModelPackArtifact(id: "config", kind: "config", relativePath: "config.json"),
-                ModelPackArtifact(id: "weights", kind: "weights", relativePath: "model.safetensors"),
-                ModelPackArtifact(id: "tokenizer", kind: "tokenizer", relativePath: "tokenizer.json"),
+                ModelPackArtifact(
+                    id: "config",
+                    kind: "config",
+                    relativePath: "config.json",
+                    checksum: sha256Hex(for: configData),
+                    byteCount: configData.count
+                ),
+                ModelPackArtifact(
+                    id: "weights",
+                    kind: "weights",
+                    relativePath: "model.safetensors",
+                    checksum: sha256Hex(for: hubWeightsData),
+                    byteCount: hubWeightsData.count
+                ),
+                ModelPackArtifact(
+                    id: "tokenizer",
+                    kind: "tokenizer",
+                    relativePath: "tokenizer.json",
+                    checksum: sha256Hex(for: tokenizerData),
+                    byteCount: tokenizerData.count
+                ),
             ],
             licenseName: "Model license",
             licenseURL: "https://example.com/license"
@@ -794,38 +1018,38 @@ final class ValarCoreCatalogTests: XCTestCase {
             cacheRoot: cacheRoot,
             modelID: manifest.modelID,
             relativePath: "config.json",
-            data: Data(#"{"model_type":"qwen3"}"#.utf8)
+            data: configData
         )
         try writeHFHubSnapshotArtifact(
             cacheRoot: cacheRoot,
             modelID: manifest.modelID,
             relativePath: "model.safetensors",
-            data: Data("hub-weights".utf8)
+            data: hubWeightsData
         )
         try writeHFHubSnapshotArtifact(
             cacheRoot: cacheRoot,
             modelID: manifest.modelID,
             relativePath: "tokenizer.json",
-            data: Data(#"{"tokenizer":"hub"}"#.utf8)
+            data: tokenizerData
         )
 
         try writeMLXAudioCacheArtifact(
             cacheRoot: cacheRoot,
             modelID: manifest.modelID,
             relativePath: "config.json",
-            data: Data(#"{"model_type":"qwen3"}"#.utf8)
+            data: mlxAudioConfigData
         )
         try writeMLXAudioCacheArtifact(
             cacheRoot: cacheRoot,
             modelID: manifest.modelID,
             relativePath: "model.safetensors",
-            data: Data("mlx-audio-weights".utf8)
+            data: mlxAudioWeightsData
         )
         try writeMLXAudioCacheArtifact(
             cacheRoot: cacheRoot,
             modelID: manifest.modelID,
             relativePath: "tokenizer.json",
-            data: Data(#"{"tokenizer":"mlx-audio"}"#.utf8)
+            data: mlxAudioTokenizerData
         )
 
         let installer = ModelInstaller(
@@ -1075,15 +1299,17 @@ final class ValarCoreCatalogTests: XCTestCase {
             )
         }
 
-        // Models without pre-computed checksums are now trusted when downloaded
-        // from HuggingFace. Install should succeed.
-        let record = try await installer.install(
-            manifest: manifest,
-            sourceKind: ModelPackSourceKind.remoteURL,
-            sourceLocation: sourceLocation,
-            mode: ModelInstallMode.downloadArtifacts
-        )
-        XCTAssertNotNil(record)
+        do {
+            _ = try await installer.install(
+                manifest: manifest,
+                sourceKind: ModelPackSourceKind.remoteURL,
+                sourceLocation: sourceLocation,
+                mode: ModelInstallMode.downloadArtifacts
+            )
+            XCTFail("Expected missing checksum")
+        } catch let error as ModelInstallerError {
+            XCTAssertEqual(error, .missingChecksum(artifactPath: "weights/model.safetensors"))
+        }
     }
 
     func testModelInstallerRejectsMissingConfigChecksumOnRemoteDownload() async throws {
@@ -1126,15 +1352,17 @@ final class ValarCoreCatalogTests: XCTestCase {
             )
         }
 
-        // Models without pre-computed checksums are now trusted when downloaded
-        // from HuggingFace. Install should succeed.
-        let record = try await installer.install(
-            manifest: manifest,
-            sourceKind: ModelPackSourceKind.remoteURL,
-            sourceLocation: sourceLocation,
-            mode: ModelInstallMode.downloadArtifacts
-        )
-        XCTAssertNotNil(record)
+        do {
+            _ = try await installer.install(
+                manifest: manifest,
+                sourceKind: ModelPackSourceKind.remoteURL,
+                sourceLocation: sourceLocation,
+                mode: ModelInstallMode.downloadArtifacts
+            )
+            XCTFail("Expected missing checksum")
+        } catch let error as ModelInstallerError {
+            XCTAssertEqual(error, .missingChecksum(artifactPath: "config.json"))
+        }
     }
 
     func testModelInstallerRejectsTokenizerChecksumMismatchBeforeRegistryInstall() async throws {
@@ -1313,19 +1541,18 @@ final class ValarCoreCatalogTests: XCTestCase {
         XCTAssertTrue(report.issues.contains {
             $0.severity == .warning
                 && $0.message.contains("Config artifact 'config'")
-                && $0.message.contains("cannot locally verify the downloaded file")
+                && $0.message.contains("Valar will not install the file from a remote source")
         })
         XCTAssertTrue(report.issues.contains {
             $0.severity == .warning
                 && $0.message.contains("Tokenizer artifact 'tokenizer'")
-                && $0.message.contains("cannot locally verify the downloaded file")
+                && $0.message.contains("Valar will not install the file from a remote source")
         })
         XCTAssertTrue(report.issues.contains {
             $0.severity == .warning
                 && $0.message.contains("Weight artifact 'weights'")
-                && $0.message.contains("cannot locally verify the downloaded file")
+                && $0.message.contains("Valar will not install the file from a remote source")
         })
-        XCTAssertFalse(report.issues.contains { $0.message.contains("remote downloads will be rejected") })
     }
 
     func testQwenCatalogEntriesIncludeWeightChecksums() {
@@ -1405,6 +1632,24 @@ final class ValarCoreCatalogTests: XCTestCase {
         )
     }
 
+    private func makeSingleArtifactCatalogEntry(modelID: String) -> SupportedModelCatalogEntry {
+        SupportedModelCatalogEntry(
+            manifest: ValarModelKit.ModelPackManifest(
+                id: ModelIdentifier(modelID),
+                familyID: .qwen3TTS,
+                displayName: "Symlinked Model",
+                domain: .tts,
+                capabilities: [.speechSynthesis],
+                supportedBackends: [BackendRequirement(backendKind: .mlx)],
+                artifacts: [
+                    ArtifactSpec(id: "weights", role: .weights, relativePath: "model.safetensors"),
+                ],
+                licenses: []
+            ),
+            remoteURL: URL(string: "https://huggingface.co/\(modelID)")
+        )
+    }
+
     private func makeAppPaths() throws -> ValarAppPaths {
         let root = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -1435,6 +1680,31 @@ final class ValarCoreCatalogTests: XCTestCase {
         let artifactURL = snapshotRoot.appendingPathComponent(relativePath, isDirectory: false)
         try FileManager.default.createDirectory(at: artifactURL.deletingLastPathComponent(), withIntermediateDirectories: true)
         try data.write(to: artifactURL)
+    }
+
+    private func writeHFHubSnapshotSymlink(
+        cacheRoot: URL,
+        modelID: String,
+        relativePath: String,
+        destination: URL
+    ) throws {
+        let repoDirectory = cacheRoot.appendingPathComponent(
+            "models--" + modelID.replacingOccurrences(of: "/", with: "--"),
+            isDirectory: true
+        )
+        let revision = "test-revision"
+        let snapshotRoot = repoDirectory
+            .appendingPathComponent("snapshots", isDirectory: true)
+            .appendingPathComponent(revision, isDirectory: true)
+        let refsRoot = repoDirectory.appendingPathComponent("refs", isDirectory: true)
+
+        try FileManager.default.createDirectory(at: snapshotRoot, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: refsRoot, withIntermediateDirectories: true)
+        try Data(revision.utf8).write(to: refsRoot.appendingPathComponent("main", isDirectory: false))
+
+        let artifactURL = snapshotRoot.appendingPathComponent(relativePath, isDirectory: false)
+        try FileManager.default.createDirectory(at: artifactURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(at: artifactURL, withDestinationURL: destination)
     }
 
     private func writeHFHubSnapshotArtifacts(

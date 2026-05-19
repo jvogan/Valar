@@ -136,13 +136,20 @@ public extension ValarRuntime {
         paths orphanedPaths: [String],
         fileManager: FileManager = .default
     ) async throws -> [String] {
+        let currentOrphans = Set(try await orphanedModelPackPaths(fileManager: fileManager))
         var removedPaths: [String] = []
         for path in orphanedPaths {
-            guard fileManager.fileExists(atPath: path) else { continue }
-            try fileManager.removeItem(atPath: path)
-            removedPaths.append(path)
+            let url = URL(fileURLWithPath: path, isDirectory: true).standardizedFileURL
+            guard fileManager.fileExists(atPath: url.path) else { continue }
+            try validateModelPackDirectoryForRemoval(url, fileManager: fileManager)
+            guard currentOrphans.contains(url.path) else {
+                continue
+            }
+            try fileManager.removeItem(at: url)
+            removedPaths.append(url.path)
             try pruneEmptyModelPackDirectories(
-                startingAt: URL(fileURLWithPath: path, isDirectory: true)
+                startingAt: url,
+                fileManager: fileManager
             )
         }
         return removedPaths.sorted()
@@ -150,7 +157,19 @@ public extension ValarRuntime {
 
     func installedModelPackPaths() async throws -> Set<String> {
         let receipts = try await modelPackRegistry.receipts()
-        return Set(receipts.map(\.installedModelPath))
+        var paths: Set<String> = []
+        for receipt in receipts {
+            do {
+                let packDirectory = try self.paths.modelPackDirectory(
+                    familyID: receipt.familyID,
+                    modelID: receipt.modelID
+                )
+                paths.formUnion(modelPackPathComparisonKeys(for: packDirectory))
+            } catch {
+                continue
+            }
+        }
+        return paths
     }
 
     func performVoiceLibraryMaintenance(
@@ -222,6 +241,14 @@ private extension ValarRuntime {
             guard fileManager.fileExists(atPath: familyDirectory.path, isDirectory: &isDirectory), isDirectory.boolValue else {
                 continue
             }
+            guard !ValarAppPaths.isSymbolicLink(familyDirectory, fileManager: fileManager) else {
+                continue
+            }
+            try ValarAppPaths.validateContainment(
+                familyDirectory,
+                within: root,
+                fileManager: fileManager
+            )
 
             let modelDirectories = try fileManager.contentsOfDirectory(
                 at: familyDirectory,
@@ -229,13 +256,22 @@ private extension ValarRuntime {
                 options: [.skipsHiddenFiles]
             )
             for modelDirectory in modelDirectories {
+                guard !ValarAppPaths.isSymbolicLink(modelDirectory, fileManager: fileManager) else {
+                    continue
+                }
+                try ValarAppPaths.validateContainment(
+                    modelDirectory,
+                    within: root,
+                    fileManager: fileManager
+                )
                 guard fileManager.fileExists(
                     atPath: modelDirectory.appendingPathComponent("manifest.json").path
                 ) else {
                     continue
                 }
-                let standardizedPath = modelDirectory.standardizedFileURL.path
-                if !registeredPaths.contains(standardizedPath) {
+                let pathKeys = modelPackPathComparisonKeys(for: modelDirectory)
+                if registeredPaths.isDisjoint(with: pathKeys) {
+                    let standardizedPath = modelDirectory.standardizedFileURL.path
                     orphanedPaths.append(standardizedPath)
                 }
             }
@@ -244,17 +280,36 @@ private extension ValarRuntime {
         return orphanedPaths
     }
 
-    func pruneEmptyModelPackDirectories(startingAt url: URL) throws {
-        let root = paths.modelPacksDirectory.standardizedFileURL
-        var current = url.standardizedFileURL.deletingLastPathComponent()
-        while current.path.hasPrefix(root.path), current != root {
-            let contents = try FileManager.default.contentsOfDirectory(
+    func modelPackPathComparisonKeys(for url: URL) -> Set<String> {
+        let standardized = url.standardizedFileURL
+        return [
+            standardized.path,
+            standardized.resolvingSymlinksInPath().standardizedFileURL.path
+        ]
+    }
+
+    func validateModelPackDirectoryForRemoval(_ url: URL, fileManager: FileManager) throws {
+        let root = paths.modelPacksDirectory
+        try ValarAppPaths.validateContainment(url, within: root, fileManager: fileManager)
+        try ValarAppPaths.validateDirectoryIsNotSymbolicLink(url, fileManager: fileManager)
+    }
+
+    func pruneEmptyModelPackDirectories(
+        startingAt url: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        let root = paths.modelPacksDirectory.resolvingSymlinksInPath().standardizedFileURL
+        var current = url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL
+        while current != root {
+            try ValarAppPaths.validateContainment(current, within: root, fileManager: fileManager)
+            try ValarAppPaths.validateDirectoryIsNotSymbolicLink(current, fileManager: fileManager)
+            let contents = try fileManager.contentsOfDirectory(
                 at: current,
                 includingPropertiesForKeys: nil,
                 options: [.skipsHiddenFiles]
             )
             guard contents.isEmpty else { break }
-            try FileManager.default.removeItem(at: current)
+            try fileManager.removeItem(at: current)
             let parent = current.deletingLastPathComponent()
             if parent.path == current.path { break }
             current = parent

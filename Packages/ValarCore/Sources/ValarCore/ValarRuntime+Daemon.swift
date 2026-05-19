@@ -459,6 +459,11 @@ public extension ValarRuntime {
         let sourceLocation = entry.remoteURL?.absoluteString ?? "catalog:\(id)"
         let manifest = ModelCatalog.makePersistenceManifest(from: entry.manifest)
         let mode: ModelInstallMode = sourceKind == .remoteURL ? .downloadArtifacts : .metadataOnly
+        let currentModel = try await modelCatalog.refresh().first { $0.id == identifier }
+
+        if !refreshCache, currentModel?.installState == .installed {
+            return
+        }
 
         if refreshCache {
             if sourceKind == .remoteURL, !allowDownload {
@@ -473,6 +478,12 @@ public extension ValarRuntime {
                 }
             }
             _ = try await modelInstaller.purgeSharedCaches(for: identifier)
+        }
+
+        if sourceKind == .remoteURL,
+           !allowDownload,
+           currentModel?.installState != .cached {
+            throw RouteModelError.refreshRequiresDownload(id)
         }
 
         _ = try await modelInstaller.install(
@@ -784,7 +795,7 @@ public enum RouteModelError: LocalizedError, Sendable, Equatable {
         case .modelHidden(let message):
             return message
         case .refreshRequiresDownload(let id):
-            return "Refreshing shared cache for model '\(id)' requires network download. Retry with allow_download=true."
+            return "Model '\(id)' requires network download. Retry with allow_download=true."
         }
     }
 }

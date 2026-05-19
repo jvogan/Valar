@@ -1,0 +1,33 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Swift MLX module metadata labels are not secrets."
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''(^|/)Packages/mlx-audio-swift-valar/.+\.swift$''',
+]
+regexTarget = "match"
+regexes = [
+  '''key:\s*"[A-Za-z0-9_.-]+"''',
+]
+
+[[allowlists]]
+description = "Voice protection tests declare a fixture environment variable name, not a secret value."
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''(^|/)Packages/ValarPersistence/Tests/ValarPersistenceTests/VoiceLibraryProtectionTests\.swift$''',
+]
+regexTarget = "match"
+regexes = [
+  '''testKeyEnvironmentVariable = "VALARTTS_TEST_VOICE_KEY_B64"''',
+]
+
+[[allowlists]]
+description = "Public-audit rule patterns intentionally include private-key sentinels."
+targetRules = ["private-key"]
+paths = [
+  '''(^|/)tools/public_repo_rules\.sh$''',
+]

@@ -15,7 +15,7 @@ Only the exact IDs below are part of the main public onboarding path.
 
 | Family | Exact install ID | Support status | Download posture | Rough local footprint | License | Best use |
 | --- | --- | --- | --- | --- | --- | --- |
-| Soprano 1.1 80M | `mlx-community/Soprano-1.1-80M-bf16` | Supported | Recommended first install | About `285 MB` | Apache 2.0 | Fastest first run and starter demo lane |
+| Soprano 1.1 80M | `mlx-community/Soprano-1.1-80M-bf16` | Supported | Recommended first install | About `285 MB` | Apache 2.0 | Smallest first run and starter demo lane |
 | Qwen3-TTS 1.7B Base | `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Main narrator lane and stable long-form speech |
 | Qwen3-TTS 1.7B CustomVoice | `mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Named speakers and saved voices |
 | Qwen3-TTS 1.7B VoiceDesign | `mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Text-described voice creation |

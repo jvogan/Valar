@@ -68,17 +68,18 @@ while IFS= read -r regex; do
   CONTENT_BLOCK_REGEXES+=("$regex")
 done < <(valar_public_repo_content_block_regexes)
 
-declare -a SECRET_BLOCK_REGEXES=()
+declare -a HISTORY_BLOCK_REGEXES=()
 while IFS= read -r regex; do
   [[ -n "$regex" ]] || continue
-  SECRET_BLOCK_REGEXES+=("$regex")
-done < <(valar_public_repo_secret_block_regexes)
+  HISTORY_BLOCK_REGEXES+=("$regex")
+done < <(valar_public_repo_history_block_regexes)
 
 TMP_PATH_HITS="$(mktemp)"
 TMP_CONTENT_HITS="$(mktemp)"
+TMP_MESSAGE_HITS="$(mktemp)"
 TMP_FILTERED_CONTENT_HITS="$(mktemp)"
 cleanup() {
-  rm -f "$TMP_PATH_HITS" "$TMP_CONTENT_HITS" "$TMP_FILTERED_CONTENT_HITS"
+  rm -f "$TMP_PATH_HITS" "$TMP_CONTENT_HITS" "$TMP_MESSAGE_HITS" "$TMP_FILTERED_CONTENT_HITS"
 }
 trap cleanup EXIT
 
@@ -92,7 +93,7 @@ declare -a GREP_ARGS=()
 for regex in "${CONTENT_BLOCK_REGEXES[@]}"; do
   GREP_ARGS+=(-e "$regex")
 done
-for regex in "${SECRET_BLOCK_REGEXES[@]}"; do
+for regex in "${HISTORY_BLOCK_REGEXES[@]}"; do
   GREP_ARGS+=(-e "$regex")
 done
 
@@ -129,6 +130,16 @@ while IFS= read -r rev; do
     echo "git grep failed while scanning revision $rev" >&2
     exit "$grep_status"
   fi
+
+  set +e
+  git -C "$SCAN_ROOT" log -1 --format=%B "$rev" | grep -E -n "${GREP_ARGS[@]}" \
+    | sed "s#^#$rev:commit-message:#" >> "$TMP_MESSAGE_HITS"
+  grep_status=$?
+  set -e
+  if [[ "$grep_status" -gt 1 ]]; then
+    echo "git log/grep failed while scanning commit message $rev" >&2
+    exit "$grep_status"
+  fi
 done < <(git -C "$SCAN_ROOT" rev-list --all)
 
 if [[ -s "$TMP_PATH_HITS" ]]; then
@@ -144,6 +155,13 @@ while IFS= read -r hit; do
   fi
   printf '%s\n' "$hit" >> "$TMP_FILTERED_CONTENT_HITS"
 done < "$TMP_CONTENT_HITS"
+while IFS= read -r hit; do
+  [[ -n "$hit" ]] || continue
+  if history_content_hit_is_allowed "$hit"; then
+    continue
+  fi
+  printf '%s\n' "$hit" >> "$TMP_FILTERED_CONTENT_HITS"
+done < "$TMP_MESSAGE_HITS"
 
 if [[ -s "$TMP_FILTERED_CONTENT_HITS" ]]; then
   echo "Public history scan failed. Found private or secret-like content in git history:" >&2

@@ -48,7 +48,7 @@ That repo-local state directory is gitignored in this public repo.
 
 | Goal | Start with | Why |
 | --- | --- | --- |
-| Prove your machine works | `Soprano` | Smallest, fastest first clip |
+| Prove your machine works | `Soprano` | Smallest first clip and lowest-friction install |
 | Main narration / stable speech | `Qwen Base` | Primary supported TTS lane |
 | Voice design and saved speakers | `Qwen VoiceDesign` | Text-driven voice creation that stays inside the main Qwen family |
 | Transcription or timestamps | `Qwen ASR` / `Qwen ForcedAligner` | Main supported ASR and alignment lane |
@@ -73,18 +73,9 @@ The bridge is optional. Bun is only required if you want MCP or advanced automat
   <img alt="Valar app preview" src="./assets/media/app-preview.png" width="49%" />
 </p>
 
-## Performance
+## Performance Expectations
 
-Benchmarked on Apple Silicon with warm model cache:
-
-| Model | First Audio | Real-Time Factor | Footprint |
-|---|---|---|---|
-| Soprano | Instant | < 1.0x | ~285 MB |
-| Qwen Base | < 1 s | < 1.5x | ~1.0-4.2 GB |
-| VibeVoice | < 500 ms | < 1.5x | ~700 MB |
-| Voxtral | < 1 s | < 1.5x | ~2.4 GB |
-
-First Audio = time to first audio byte (warm start). Real-Time Factor = synthesis time / audio duration (lower is faster). See [tests/vibevoice_corpus/README.md](./tests/vibevoice_corpus/README.md) for detailed benchmark targets and methodology.
+The public docs do not publish universal real-time-factor targets. Local speed varies with Mac model, memory pressure, cold versus warm model cache, text length, selected voice path, and upstream model changes. Treat validation clips and locally generated benchmark output as machine-specific evidence, not a project-wide performance guarantee.
 
 ## App Source
 
