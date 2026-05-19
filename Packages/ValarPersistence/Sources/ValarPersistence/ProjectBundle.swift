@@ -633,6 +633,8 @@ public final class ProjectBundleWriter {
         using fileManager: FileManager,
         at directoryURL: URL
     ) throws {
+        try ValarAppPaths.validateDirectoryIsNotSymbolicLink(directoryURL, fileManager: fileManager)
+
         var isDirectory: ObjCBool = false
         if fileManager.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory), isDirectory.boolValue {
             return

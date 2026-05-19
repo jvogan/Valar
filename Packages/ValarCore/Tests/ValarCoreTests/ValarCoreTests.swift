@@ -803,6 +803,100 @@ final class ValarCoreTests: XCTestCase {
         XCTAssertEqual(report.orphanedModelPackPaths, [packDirectory.standardizedFileURL.path])
     }
 
+    func testReconcileLocalModelPackStateIgnoresSymlinkedOrphanDirectories() async throws {
+        let fileManager = FileManager.default
+        let baseURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let runtime = try ValarRuntime(
+            paths: ValarAppPaths(baseURL: baseURL),
+            runtimeConfiguration: RuntimeConfiguration(),
+            inferenceBackend: LocalStubInferenceBackend()
+        )
+        let modelID = ValarRuntime.defaultVoiceCloneRuntimeModelID
+        let manifestOptional = try await runtime.modelCatalog.installationManifest(for: modelID)
+        let manifest = try XCTUnwrap(manifestOptional)
+        let packDirectory = try runtime.paths.modelPackDirectory(
+            familyID: manifest.familyID,
+            modelID: manifest.modelID
+        )
+        let outsideDirectory = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: outsideDirectory, withIntermediateDirectories: true)
+        try fileManager.createDirectory(at: packDirectory.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONEncoder().encode(manifest).write(
+            to: outsideDirectory.appendingPathComponent("manifest.json", isDirectory: false)
+        )
+        try fileManager.createSymbolicLink(at: packDirectory, withDestinationURL: outsideDirectory)
+
+        let report = try await runtime.auditLocalModelPackState(fileManager: fileManager)
+
+        XCTAssertFalse(report.orphanedModelPackPaths.contains(packDirectory.standardizedFileURL.path))
+        XCTAssertTrue(ValarAppPaths.isSymbolicLink(packDirectory, fileManager: fileManager))
+        XCTAssertTrue(fileManager.fileExists(atPath: outsideDirectory.path))
+    }
+
+    func testRemoveOrphanedModelPacksDoesNotRemoveRegisteredPackFromArbitraryInput() async throws {
+        let fileManager = FileManager.default
+        let baseURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let paths = ValarAppPaths(baseURL: baseURL)
+        let runtime = try ValarRuntime(
+            paths: paths,
+            runtimeConfiguration: RuntimeConfiguration(),
+            inferenceBackend: LocalStubInferenceBackend()
+        )
+        let modelID = ValarRuntime.defaultVoiceCloneRuntimeModelID
+        let manifestOptional = try await runtime.modelCatalog.installationManifest(for: modelID)
+        let manifest = try XCTUnwrap(manifestOptional)
+        _ = try await runtime.modelPackRegistry.install(
+            manifest: manifest,
+            sourceKind: .remoteURL,
+            sourceLocation: "https://example.com/\(modelID.rawValue)",
+            notes: nil
+        )
+        try materializeInstalledPack(paths: paths, manifest: manifest)
+        let packDirectory = try paths.modelPackDirectory(familyID: manifest.familyID, modelID: manifest.modelID)
+
+        let removed = try await runtime.removeOrphanedModelPacks(
+            paths: [packDirectory.path],
+            fileManager: fileManager
+        )
+
+        XCTAssertTrue(removed.isEmpty)
+        XCTAssertTrue(fileManager.fileExists(atPath: packDirectory.path))
+        let installedRecord = try await runtime.modelPackRegistry.installedRecord(for: modelID.rawValue)
+        XCTAssertNotNil(installedRecord)
+    }
+
+    func testInstallRouteModelRequiresAllowDownloadWhenRemoteModelIsNotCached() async throws {
+        let fileManager = FileManager.default
+        let baseURL = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let cacheRoot = fileManager.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: cacheRoot, withIntermediateDirectories: true)
+        let previousHFHubCache = ProcessInfo.processInfo.environment["HF_HUB_CACHE"]
+        setenv("HF_HUB_CACHE", cacheRoot.path, 1)
+        defer {
+            if let previousHFHubCache {
+                setenv("HF_HUB_CACHE", previousHFHubCache, 1)
+            } else {
+                unsetenv("HF_HUB_CACHE")
+            }
+        }
+        let runtime = try ValarRuntime(
+            paths: ValarAppPaths(baseURL: baseURL),
+            runtimeConfiguration: RuntimeConfiguration(),
+            inferenceBackend: LocalStubInferenceBackend()
+        )
+        let modelID = ValarRuntime.defaultVoiceCloneRuntimeModelID
+
+        do {
+            try await runtime.installRouteModel(id: modelID.rawValue, allowDownload: false)
+            XCTFail("Expected install without download consent to fail")
+        } catch let error as RouteModelError {
+            XCTAssertEqual(error, .refreshRequiresDownload(modelID.rawValue))
+        }
+
+        let installedRecord = try await runtime.modelPackRegistry.installedRecord(for: modelID.rawValue)
+        XCTAssertNil(installedRecord)
+    }
+
     func testDaemonReadyStatusIncludesInstalledAvailabilityWhenModelsAreResident() async throws {
         let baseURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let paths = ValarAppPaths(baseURL: baseURL)

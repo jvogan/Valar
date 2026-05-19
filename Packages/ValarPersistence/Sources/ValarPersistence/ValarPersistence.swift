@@ -6,6 +6,7 @@ public enum ValarPathValidationError: Error, LocalizedError, Equatable {
     case absolutePathNotAllowed(label: String, value: String)
     case pathTraversalDetected(label: String, value: String)
     case pathEscapesContainment(path: String, allowedDirectory: String)
+    case symbolicLinkDirectoryNotAllowed(path: String)
     case applicationSupportDirectoryUnavailable
 
     public var errorDescription: String? {
@@ -18,6 +19,8 @@ public enum ValarPathValidationError: Error, LocalizedError, Equatable {
             return "\(label) contains path traversal components"
         case .pathEscapesContainment:
             return "Resolved path escapes the allowed directory"
+        case .symbolicLinkDirectoryNotAllowed:
+            return "Directory must not be a symbolic link"
         case .applicationSupportDirectoryUnavailable:
             return "Application Support directory is unavailable; cannot safely determine storage location"
         }
@@ -119,6 +122,22 @@ public struct ValarAppPaths: Sendable, Equatable {
         fileManager: FileManager = .default
     ) throws {
         try Self.validateContainment(candidate, within: allowedDirectory, fileManager: fileManager)
+    }
+
+    public static func isSymbolicLink(
+        _ url: URL,
+        fileManager: FileManager = .default
+    ) -> Bool {
+        (try? fileManager.destinationOfSymbolicLink(atPath: url.path)) != nil
+    }
+
+    public static func validateDirectoryIsNotSymbolicLink(
+        _ url: URL,
+        fileManager: FileManager = .default
+    ) throws {
+        if isSymbolicLink(url, fileManager: fileManager) {
+            throw ValarPathValidationError.symbolicLinkDirectoryNotAllowed(path: url.path)
+        }
     }
 
     public static func validateRelativePath(_ path: String, label: String = "path") throws {

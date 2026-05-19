@@ -251,6 +251,7 @@ public actor ModelCatalog {
     private let capabilityRegistry: (any CapabilityRegistryManaging)?
     private let visibilityPolicyProvider: @Sendable () -> CatalogVisibilityPolicy
     private let hfCacheRoot: URL?
+    private let appPaths: ValarAppPaths?
     private var cachedModels: [ModelIdentifier: CatalogModel]
 
     public init(
@@ -259,6 +260,7 @@ public actor ModelCatalog {
         packStore: (any ModelPackStore)? = nil,
         capabilityRegistry: (any CapabilityRegistryManaging)? = nil,
         hfCacheRoot: URL? = nil,
+        appPaths: ValarAppPaths? = nil,
         visibilityPolicyProvider: @escaping @Sendable () -> CatalogVisibilityPolicy = CatalogVisibilityPolicy.currentProcess
     ) {
         self.supportedSource = supportedSource
@@ -267,6 +269,7 @@ public actor ModelCatalog {
         self.capabilityRegistry = capabilityRegistry
         self.visibilityPolicyProvider = visibilityPolicyProvider
         self.hfCacheRoot = hfCacheRoot
+        self.appPaths = appPaths
         self.cachedModels = [:]
     }
 
@@ -290,7 +293,7 @@ public actor ModelCatalog {
             let installedRecord = try await packStore?.installedRecord(for: entry.id.rawValue)
             let supportedPersistenceManifest = Self.makePersistenceManifest(from: entry.manifest)
             let installPathStatus = installedRecord.map {
-                Self.installPathStatus($0, manifest: supportedPersistenceManifest)
+                Self.installPathStatus($0, manifest: supportedPersistenceManifest, appPaths: appPaths)
             }
             let materializedInstalledRecord = installPathStatus?.isValid == true ? installedRecord : nil
             let resolvedManifest = entry.manifest
@@ -426,6 +429,7 @@ public actor ModelCatalog {
         fileManager: FileManager = .default,
         hfCacheRoot: URL? = nil
     ) -> Bool {
+        let resolvedHFCacheRoot = resolveHFHubCacheRoot(fileManager: fileManager, hfCacheRoot: hfCacheRoot)
         let hubArtifactURL: (String, String) -> URL? = { modelID, relativePath in
             guard let snapshotDirectory = hfHubSnapshotDirectory(
                 modelID: modelID,
@@ -442,7 +446,7 @@ public actor ModelCatalog {
         if !requiredArtifacts.isEmpty,
            requiredArtifacts.allSatisfy({ artifact in
                if let direct = hubArtifactURL(entry.id.rawValue, artifact.relativePath) {
-                   return nonEmptyFileExists(at: direct, fileManager: fileManager)
+                   return nonEmptyFileExists(at: direct, containedIn: resolvedHFCacheRoot, fileManager: fileManager)
                }
 
                let fallbackModelID: String?
@@ -459,7 +463,7 @@ public actor ModelCatalog {
                    return false
                }
 
-               return nonEmptyFileExists(at: fallback, fileManager: fileManager)
+               return nonEmptyFileExists(at: fallback, containedIn: resolvedHFCacheRoot, fileManager: fileManager)
            }) {
             return true
         }
@@ -469,7 +473,8 @@ public actor ModelCatalog {
                relativePaths: requiredArtifactRelativePaths(for: entry.manifest),
                under: URL(fileURLWithPath: cachePath, isDirectory: true),
                fileManager: fileManager,
-               allowBasenameFallback: true
+               allowBasenameFallback: true,
+               containmentRoot: resolvedHFCacheRoot
            ) {
             return true
         }
@@ -480,11 +485,41 @@ public actor ModelCatalog {
     private static func installPathStatus(
         _ record: InstalledModelRecord,
         manifest: ValarPersistence.ModelPackManifest,
+        appPaths: ValarAppPaths? = nil,
         fileManager: FileManager = .default
     ) -> CatalogInstallPathStatus {
-        let installedRoot = URL(fileURLWithPath: record.installedPath, isDirectory: true)
-        let manifestURL = URL(fileURLWithPath: record.manifestPath, isDirectory: false)
+        let installedRoot: URL
+        let manifestURL: URL
+        if let appPaths {
+            do {
+                installedRoot = try appPaths.modelPackDirectory(
+                    familyID: manifest.familyID,
+                    modelID: manifest.modelID
+                )
+                manifestURL = try appPaths.modelPackManifestURL(
+                    familyID: manifest.familyID,
+                    modelID: manifest.modelID
+                )
+            } catch {
+                return .missingInstalledPath
+            }
+        } else {
+            installedRoot = URL(fileURLWithPath: record.installedPath, isDirectory: true)
+            manifestURL = URL(fileURLWithPath: record.manifestPath, isDirectory: false)
+        }
+
         guard fileManager.fileExists(atPath: installedRoot.path) else {
+            return .missingInstalledPath
+        }
+        if ValarAppPaths.isSymbolicLink(installedRoot, fileManager: fileManager) {
+            return .missingInstalledPath
+        }
+        if let appPaths,
+           (try? ValarAppPaths.validateContainment(
+               installedRoot,
+               within: appPaths.modelPacksDirectory,
+               fileManager: fileManager
+           )) == nil {
             return .missingInstalledPath
         }
         guard fileManager.fileExists(atPath: manifestURL.path) else {
@@ -528,7 +563,8 @@ public actor ModelCatalog {
         relativePaths: [String],
         under root: URL,
         fileManager: FileManager = .default,
-        allowBasenameFallback: Bool = false
+        allowBasenameFallback: Bool = false,
+        containmentRoot: URL? = nil
     ) -> Bool {
         guard fileManager.fileExists(atPath: root.path) else {
             return false
@@ -536,7 +572,11 @@ public actor ModelCatalog {
 
         return relativePaths.allSatisfy { relativePath in
             let artifactURL = root.appendingPathComponent(relativePath, isDirectory: false)
-            if nonEmptyFileExists(at: artifactURL, fileManager: fileManager) {
+            if nonEmptyFileExists(
+                at: artifactURL,
+                containedIn: containmentRoot ?? root,
+                fileManager: fileManager
+            ) {
                 return true
             }
 
@@ -545,16 +585,41 @@ public actor ModelCatalog {
             }
 
             let basenameURL = root.appendingPathComponent(URL(fileURLWithPath: relativePath).lastPathComponent, isDirectory: false)
-            return nonEmptyFileExists(at: basenameURL, fileManager: fileManager)
+            return nonEmptyFileExists(
+                at: basenameURL,
+                containedIn: containmentRoot ?? root,
+                fileManager: fileManager
+            )
         }
     }
 
-    private static func nonEmptyFileExists(at url: URL, fileManager: FileManager = .default) -> Bool {
+    private static func nonEmptyFileExists(
+        at url: URL,
+        containedIn containmentRoot: URL? = nil,
+        fileManager: FileManager = .default
+    ) -> Bool {
         guard fileManager.fileExists(atPath: url.path) else {
             return false
         }
 
-        let size = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+        let resolvedURL = url.resolvingSymlinksInPath()
+        if let containmentRoot {
+            do {
+                try ValarAppPaths.validateContainment(
+                    resolvedURL,
+                    within: containmentRoot,
+                    fileManager: fileManager
+                )
+            } catch {
+                return false
+            }
+        }
+
+        let values = try? resolvedURL.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+        guard values?.isRegularFile == true else {
+            return false
+        }
+        let size = values?.fileSize ?? 0
         return size > 0
     }
 
@@ -893,6 +958,7 @@ public enum ModelInstallerError: Error, Equatable, LocalizedError {
     case installedPackMissing(String)
     case invalidRemoteSourceLocation(String)
     case downloadFailed(String)
+    case unsafeFilesystemPath(String)
     case checksumMismatch(artifactPath: String, expected: String, actual: String)
     case missingChecksum(artifactPath: String)
 
@@ -907,6 +973,8 @@ public enum ModelInstallerError: Error, Equatable, LocalizedError {
         case .invalidRemoteSourceLocation(let location):
             return "Invalid remote model source: \(location)."
         case .downloadFailed(let message):
+            return message
+        case .unsafeFilesystemPath(let message):
             return message
         case .checksumMismatch(let artifactPath, let expected, let actual):
             return "Checksum mismatch for \(artifactPath): expected \(expected), got \(actual)."
@@ -1216,9 +1284,23 @@ public actor ModelInstaller {
             return nil
         }
 
-        if FileManager.default.fileExists(atPath: existingRecord.installedPath) {
-            try FileManager.default.removeItem(atPath: existingRecord.installedPath)
-            try pruneEmptyModelPackDirectories(startingAt: URL(fileURLWithPath: existingRecord.installedPath, isDirectory: true))
+        let manifest = try await registry.manifest(for: modelID.rawValue)
+        let packDirectory: URL
+        do {
+            packDirectory = try expectedModelPackDirectory(
+                for: existingRecord,
+                manifest: manifest,
+                requestedModelID: modelID.rawValue
+            )
+        } catch {
+            throw ModelInstallerError.unsafeFilesystemPath(
+                "Refusing to remove unsafe model pack directory for '\(modelID.rawValue)': \(error.localizedDescription)"
+            )
+        }
+        try validateDeletableModelPackDirectory(packDirectory)
+        if fileManager.fileExists(atPath: packDirectory.path) {
+            try fileManager.removeItem(at: packDirectory)
+            try pruneEmptyModelPackDirectories(startingAt: packDirectory)
         }
 
         guard let record = try await registry.uninstall(modelID: modelID.rawValue) else {
@@ -1274,13 +1356,11 @@ public actor ModelInstaller {
             .appendingPathComponent(Self.hfMLXAudioDirectoryName(for: modelID.rawValue), isDirectory: true)
 
         var removedPaths: [String] = []
-        if fileManager.fileExists(atPath: standardDirectory.path) {
-            try fileManager.removeItem(at: standardDirectory)
-            removedPaths.append(standardDirectory.path)
-        }
-        if fileManager.fileExists(atPath: legacyDirectory.path) {
-            try fileManager.removeItem(at: legacyDirectory)
-            removedPaths.append(legacyDirectory.path)
+        for directory in [standardDirectory, legacyDirectory] {
+            guard fileManager.fileExists(atPath: directory.path) else { continue }
+            try validateRemovableCacheDirectory(directory, within: hubRoot)
+            try fileManager.removeItem(at: directory)
+            removedPaths.append(directory.standardizedFileURL.path)
         }
         return removedPaths
     }
@@ -1975,7 +2055,13 @@ public actor ModelInstaller {
     }
 
     private func removeIfPresent(_ url: URL) throws {
+        if ValarAppPaths.isSymbolicLink(url, fileManager: fileManager) {
+            throw ModelInstallerError.unsafeFilesystemPath(
+                "Refusing to remove unsafe model pack directory '\(url.path)': symbolic links are not allowed"
+            )
+        }
         guard fileManager.fileExists(atPath: url.path) else { return }
+        try validateDeletableModelPackDirectory(url)
         try fileManager.removeItem(at: url)
     }
 
@@ -1986,6 +2072,12 @@ public actor ModelInstaller {
                 "Cached artifact is missing or points to a broken symlink: \(sourceURL.path)"
             )
         }
+        try validateCachedArtifactSource(sourceURL, resolvedSource: resolvedSource)
+        try ValarAppPaths.validateContainment(
+            destinationURL,
+            within: paths.modelPacksDirectory,
+            fileManager: fileManager
+        )
         do {
             try fileManager.linkItem(at: resolvedSource, to: destinationURL)
             return
@@ -1994,12 +2086,73 @@ public actor ModelInstaller {
         }
     }
 
+    private func expectedModelPackDirectory(
+        for record: InstalledModelRecord,
+        manifest: ValarPersistence.ModelPackManifest?,
+        requestedModelID: String
+    ) throws -> URL {
+        try paths.modelPackDirectory(
+            familyID: manifest?.familyID ?? record.familyID,
+            modelID: requestedModelID
+        )
+    }
+
+    private func validateDeletableModelPackDirectory(_ directory: URL) throws {
+        do {
+            try ValarAppPaths.validateContainment(directory, within: paths.modelPacksDirectory, fileManager: fileManager)
+            if fileManager.fileExists(atPath: directory.path) {
+                try ValarAppPaths.validateDirectoryIsNotSymbolicLink(directory, fileManager: fileManager)
+            }
+        } catch {
+            throw ModelInstallerError.unsafeFilesystemPath(
+                "Refusing to remove unsafe model pack directory '\(directory.path)': \(error.localizedDescription)"
+            )
+        }
+    }
+
+    private func validateCachedArtifactSource(_ sourceURL: URL, resolvedSource: URL) throws {
+        let cacheRoot = Self.resolveHFHubCacheRoot(
+            fileManager: fileManager,
+            hfCacheRoot: hfCacheRoot
+        )
+        do {
+            try ValarAppPaths.validateContainment(
+                resolvedSource.standardizedFileURL,
+                within: cacheRoot,
+                fileManager: fileManager
+            )
+        } catch {
+            throw ModelInstallerError.unsafeFilesystemPath(
+                "Cached artifact resolves outside the Hugging Face cache: \(sourceURL.path)"
+            )
+        }
+
+        let values = try resolvedSource.resourceValues(forKeys: [.isRegularFileKey])
+        guard values.isRegularFile == true else {
+            throw ModelInstallerError.unsafeFilesystemPath(
+                "Cached artifact is not a regular file: \(sourceURL.path)"
+            )
+        }
+    }
+
+    private func validateRemovableCacheDirectory(_ directory: URL, within cacheRoot: URL) throws {
+        do {
+            try ValarAppPaths.validateContainment(directory, within: cacheRoot, fileManager: fileManager)
+            try ValarAppPaths.validateDirectoryIsNotSymbolicLink(directory, fileManager: fileManager)
+        } catch {
+            throw ModelInstallerError.unsafeFilesystemPath(
+                "Refusing to remove cache directory outside the Hugging Face cache root: \(directory.path)"
+            )
+        }
+    }
+
     private func pruneEmptyModelPackDirectories(startingAt directory: URL) throws {
-        let allowedRoot = paths.modelPacksDirectory.standardizedFileURL
-        var current = directory.deletingLastPathComponent().standardizedFileURL
+        let allowedRoot = paths.modelPacksDirectory.resolvingSymlinksInPath().standardizedFileURL
+        var current = directory.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL
 
         while current.path != allowedRoot.path {
             try ValarAppPaths.validateContainment(current, within: allowedRoot, fileManager: fileManager)
+            try ValarAppPaths.validateDirectoryIsNotSymbolicLink(current, fileManager: fileManager)
             let children = try fileManager.contentsOfDirectory(
                 at: current,
                 includingPropertiesForKeys: nil,

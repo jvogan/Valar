@@ -22,6 +22,13 @@ valar_public_repo_path_block_regexes() {
 (^|/)docs/analysis-[^/]+\.md$
 (^|/)docs/agent-loop-playbook\.md$
 (^|/)docs/repo-lanes\.md$
+(^|/)\.env(\..*)?$
+(^|/)\.netrc$
+(^|/)\.npmrc$
+(^|/)\.pypirc$
+(^|/)\.aws/(credentials|config)$
+(^|/)(id_rsa|id_dsa|id_ecdsa|id_ed25519)$
+(^|/)[^/]*\.(pem|p12|pfx|key)$
 (^|/)artifacts/
 (^|/)mlx_audio/
 (^|/)MANIFEST\.in$
@@ -77,25 +84,74 @@ forwardToClaude
 claude-fast
 claude-quality
 ghp_[A-Za-z0-9]{36}
+gh[osru]_[A-Za-z0-9_]{36,}
 github_pat_[A-Za-z0-9_]{20,}
 hf_[A-Za-z0-9]{32,}
-sk-[A-Za-z0-9]{20,}
+sk-[A-Za-z0-9_-]{20,}
+sk-proj-[A-Za-z0-9_-]{20,}
+sk-ant-[A-Za-z0-9_-]{20,}
 xox[baprs]-[A-Za-z0-9-]+
+xapp-[A-Za-z0-9-]+
+AKIA[0-9A-Z]{16}
+ASIA[0-9A-Z]{16}
+AIza[0-9A-Za-z_-]{35}
+(OPENAI|ANTHROPIC|LINEAR|TELEGRAM|SLACK|GITHUB|HF|HUGGINGFACE|HUGGING_FACE|RUNPOD|AWS|GOOGLE|GEMINI|DISCORD|ELEVENLABS)[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)[[:space:]]*[:=][[:space:]]*["']?[^[:space:]'"]{8,}
 -----BEGIN [A-Z ]*PRIVATE KEY-----
+-----BEGIN OPENSSH PRIVATE KEY-----
 EOF
 }
 
 valar_public_repo_secret_block_regexes() {
   cat <<'EOF'
 ghp_[A-Za-z0-9]{36}
+gh[osru]_[A-Za-z0-9_]{36,}
 github_pat_[A-Za-z0-9_]{20,}
 hf_[A-Za-z0-9]{32,}
-sk-[A-Za-z0-9]{20,}
+sk-[A-Za-z0-9_-]{20,}
+sk-proj-[A-Za-z0-9_-]{20,}
+sk-ant-[A-Za-z0-9_-]{20,}
 xox[baprs]-[A-Za-z0-9-]+
+xapp-[A-Za-z0-9-]+
 AKIA[0-9A-Z]{16}
+ASIA[0-9A-Z]{16}
 AIza[0-9A-Za-z_-]{35}
-(OPENAI_API_KEY|ANTHROPIC_API_KEY|LINEAR_API_KEY|TELEGRAM_BOT_TOKEN|SLACK_BOT_TOKEN|GITHUB_TOKEN)[[:space:]]*=[[:space:]]*[^[:space:]]+
-(RUNPOD_API_KEY|HF_TOKEN|HUGGINGFACE_HUB_TOKEN|AWS_ACCESS_KEY_ID|AWS_SECRET_ACCESS_KEY|GEMINI_API_KEY|GOOGLE_API_KEY)[[:space:]]*=[[:space:]]*[^[:space:]]+
+(OPENAI|ANTHROPIC|LINEAR|TELEGRAM|SLACK|GITHUB|HF|HUGGINGFACE|HUGGING_FACE|RUNPOD|AWS|GOOGLE|GEMINI|DISCORD|ELEVENLABS)[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)[[:space:]]*[:=][[:space:]]*["']?[^[:space:]'"]{8,}
 -----BEGIN [A-Z ]*PRIVATE KEY-----
+-----BEGIN OPENSSH PRIVATE KEY-----
+EOF
+}
+
+valar_public_repo_history_block_regexes() {
+  cat <<'EOF'
+/Users/[A-Za-z0-9._-]+/
+/Volumes/[A-Za-z0-9._-]+/
+SSK_Symphony
+Library/LaunchAgents
+private snapshot
+snapshot-and-corpus
+Capture private snapshot
+private-local-ops
+LINEAR_API_KEY
+\.claude/
+claude-plugins-official
+Claude Code
+forwardToClaude
+claude-fast
+claude-quality
+ghp_[A-Za-z0-9]{36}
+gh[osru]_[A-Za-z0-9_]{36,}
+github_pat_[A-Za-z0-9_]{20,}
+hf_[A-Za-z0-9]{32,}
+sk-[A-Za-z0-9_-]{20,}
+sk-proj-[A-Za-z0-9_-]{20,}
+sk-ant-[A-Za-z0-9_-]{20,}
+xox[baprs]-[A-Za-z0-9-]+
+xapp-[A-Za-z0-9-]+
+AKIA[0-9A-Z]{16}
+ASIA[0-9A-Z]{16}
+AIza[0-9A-Za-z_-]{35}
+(OPENAI|ANTHROPIC|LINEAR|TELEGRAM|SLACK|GITHUB|HF|HUGGINGFACE|HUGGING_FACE|RUNPOD|AWS|GOOGLE|GEMINI|DISCORD|ELEVENLABS)[A-Z0-9_]*(KEY|TOKEN|SECRET|PASSWORD)[[:space:]]*[:=][[:space:]]*["']?[^[:space:]'"]{8,}
+-----BEGIN [A-Z ]*PRIVATE KEY-----
+-----BEGIN OPENSSH PRIVATE KEY-----
 EOF
 }

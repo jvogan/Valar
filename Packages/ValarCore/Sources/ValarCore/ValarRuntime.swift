@@ -221,7 +221,8 @@ public final class ValarRuntime: Sendable {
             supportedSource: SupportedCatalogSource.curated(),
             catalogStore: modelPackRegistry,
             packStore: modelPackRegistry,
-            capabilityRegistry: capabilityRegistry
+            capabilityRegistry: capabilityRegistry,
+            appPaths: paths
         )
         let grdbProjectStore = GRDBProjectStore(db: database, paths: paths)
         let projectStore = GRDBBackedProjectStore(store: grdbProjectStore)

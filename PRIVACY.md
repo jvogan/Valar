@@ -9,6 +9,7 @@ Valar is a local speech stack for macOS and Apple Silicon. This document describ
 - model downloads happen only when the user explicitly installs a model
 - the daemon listens on loopback by default
 - Valar does not install background services for you by default
+- benchmark, validation, and generated audio files are written only where you choose or under local temporary directories used by the scripts
 
 ## Local Data
 
@@ -19,15 +20,15 @@ Valar stores local state on your Mac for things like:
 - project or document state
 - generated outputs that you choose to write to disk
 
-Saved voice material and other local state remain on your machine unless you choose to export or share those files yourself.
+Saved voice material and other local state remain on your machine unless you choose to export or share those files yourself. Local files are protected by your macOS account and filesystem settings; do not assume generated outputs or model packs are encrypted unless you have enabled disk encryption or another explicit protection layer.
 
 If you use the MCP bridge in `bridge/`, you may choose to read or write local media under `~/Library/Application Support/Valar/bridge-storage`. The public bridge does not persist channel identifiers, sender metadata, or transcript/reply sidecars by default. Override this location with `VALARTTS_BRIDGE_STORAGE_ROOT` if needed.
 
 ## Network Access
 
-The normal workflow uses the network only for model downloads from upstream hosts such as Hugging Face. Valar does not require a cloud inference backend.
+The normal workflow uses the network only for dependency resolution and model downloads from upstream hosts such as Hugging Face. Valar does not require a cloud inference backend.
 
-The public daemon binds to `127.0.0.1:8787` only. It is loopback-only in this repo and is not intended to be exposed as a network service.
+The public daemon binds to `127.0.0.1:8787` by default. Do not expose it on a routable interface unless you add your own authentication, authorization, and network controls.
 
 ## Model Licenses
 
