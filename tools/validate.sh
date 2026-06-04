@@ -130,7 +130,8 @@ if [[ "$with_bridge" == "1" && -f "bridge/package.json" ]]; then
   echo "Typechecking MCP bridge"
   (
     cd bridge
-    bun install --frozen-lockfile
+    bun install --frozen-lockfile --ignore-scripts
+    bun audit --audit-level=moderate
     bun run typecheck
   )
 fi
