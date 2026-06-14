@@ -16,12 +16,13 @@ valar_public_repo_path_block_regexes() {
 (^|/)docs/benchmark-results-[^/]+\.md$
 (^|/)docs/qwen-production-playbook\.md$
 (^|/)docs/runtime-ownership\.md$
-(^|/)docs/(TADA_PORT_SPEC|VOXTRAL_PORT_SPEC|VIBEVOICE_PORT_SPEC)\.md$
+(^|/)docs/[A-Z0-9_]*PORT_SPEC\.md$
 (^|/)docs/tada-autoregressive-loop-spec\.md$
 (^|/)docs/tada_checkpoint_manifest\.json$
 (^|/)docs/analysis-[^/]+\.md$
 (^|/)docs/agent-loop-playbook\.md$
 (^|/)docs/repo-lanes\.md$
+(^|/)public-overlay/
 (^|/)\.env(\..*)?$
 (^|/)\.netrc$
 (^|/)\.npmrc$
@@ -70,7 +71,6 @@ valar_public_repo_content_block_regexes() {
   cat <<'EOF'
 /Users/[A-Za-z0-9._-]+/
 /Volumes/[A-Za-z0-9._-]+/
-SSK_Symphony
 Library/LaunchAgents
 private snapshot
 snapshot-and-corpus
@@ -125,7 +125,6 @@ valar_public_repo_history_block_regexes() {
   cat <<'EOF'
 /Users/[A-Za-z0-9._-]+/
 /Volumes/[A-Za-z0-9._-]+/
-SSK_Symphony
 Library/LaunchAgents
 private snapshot
 snapshot-and-corpus

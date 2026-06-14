@@ -123,6 +123,12 @@ while IFS= read -r regex; do
   [[ -n "$regex" ]] || continue
   CONTENT_BLOCK_REGEXES+=("$regex")
 done < <(valar_public_repo_content_block_regexes)
+if declare -f valar_public_repo_current_only_content_block_regexes >/dev/null; then
+  while IFS= read -r regex; do
+    [[ -n "$regex" ]] || continue
+    CONTENT_BLOCK_REGEXES+=("$regex")
+  done < <(valar_public_repo_current_only_content_block_regexes)
+fi
 
 TMP_FILE_LIST="$(mktemp)"
 TMP_PATH_HITS="$(mktemp)"

@@ -15,7 +15,7 @@ Only the exact IDs below are part of the main public onboarding path.
 
 | Family | Exact install ID | Support status | Download posture | Rough local footprint | License | Best use |
 | --- | --- | --- | --- | --- | --- | --- |
-| Soprano 1.1 80M | `mlx-community/Soprano-1.1-80M-bf16` | Supported | Recommended first install | About `285 MB` | Apache 2.0 | Smallest first run and starter demo lane |
+| Soprano 1.1 80M | `mlx-community/Soprano-1.1-80M-bf16` | Supported | Recommended first install | About `285 MB` | Model license | Smallest first run and starter demo lane |
 | Qwen3-TTS 1.7B Base | `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Main narrator lane and stable long-form speech |
 | Qwen3-TTS 1.7B CustomVoice | `mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Named speakers and saved voices |
 | Qwen3-TTS 1.7B VoiceDesign | `mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Text-described voice creation |
@@ -36,14 +36,27 @@ The CLI and daemon expose these public compatibility fields directly:
 ## Compatibility Notes
 
 - Footprint values are rough public planning numbers for local installs on Apple Silicon and can drift as upstream packs change.
+- The public docs do not make universal latency or real-time-factor claims. Measure on your own hardware with your own text and installed model set before relying on throughput numbers.
 - `Soprano` is the shortest path to a working first clip.
 - In this source-first repo, `bundledFirstRun` means “recommended first install” rather than “weights are checked into git.”
 - The table above translates those enum-style API fields into plain-language download guidance.
 - `Qwen` is the main supported product lane for high-quality speech, transcription, and alignment.
+- `Qwen Base` is the stable narrator lane. `Qwen VoiceDesign` is the text-described expressive voice lane. `Qwen CustomVoice` is the official named-speaker lane.
 - `VibeVoice` is preset-only and should be described as preview, not parity.
 - `VibeVoice` language contract is English-supported, `de/es/fr/it/ja/ko/nl/pl/pt` preview, and Hindi hidden from release-facing defaults.
 - `VibeVoice` reuses the upstream `Qwen/Qwen2.5-0.5B` tokenizer; `valartts models install` materializes that companion automatically when needed.
+- `VibeVoice` does not support local cloning, voice design, or reference-audio conditioning.
 - `Voxtral` is hidden by default unless the user intentionally opts in to non-commercial models with `VALARTTS_ENABLE_NONCOMMERCIAL_MODELS=1`.
+- `Voxtral` is preset-only in Valar's local public surface; do not present it as a saved-voice or reference-audio lane.
+
+## Public License Summary
+
+| Family | Public posture |
+| --- | --- |
+| `Soprano` | Model license with attribution in the public catalog; recommended first install. |
+| `Qwen` | Qwen License Agreement; check upstream terms before commercial deployment. |
+| `VibeVoice` | MIT model license in the public catalog; optional compatibility preview. |
+| `Voxtral` | CC BY-NC 4.0; hidden unless explicitly enabled for non-commercial use. |
 
 ## License Boundary
 

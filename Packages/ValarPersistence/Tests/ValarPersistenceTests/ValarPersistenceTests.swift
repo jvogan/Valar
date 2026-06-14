@@ -473,8 +473,8 @@ final class ValarPersistenceTests: XCTestCase {
         XCTAssertEqual(bundleName, "a-b-the-rewrite")
     }
 
-    func testModelPackPathsLandUnderApplicationSupport() {
-        let paths = ValarAppPaths()
+    func testModelPackPathsLandUnderApplicationSupport() throws {
+        let paths = try ValarAppPaths.resolveSystemPaths()
 
         XCTAssertTrue(paths.modelPacksDirectory.path.contains("ValarTTS"))
         XCTAssertEqual(try? paths.modelPackManifestURL(familyID: "qwen3_tts", modelID: "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16").lastPathComponent, "manifest.json")

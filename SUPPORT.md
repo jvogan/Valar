@@ -14,7 +14,16 @@ Then gather the basics:
 ```bash
 swift run --package-path apps/ValarCLI valartts doctor --json
 swift run --package-path apps/ValarCLI valartts models list --json
+swift run --package-path apps/ValarCLI valartts models status
 ```
+
+If a model looks cached but not installed, run `models install <id> --allow-download` before treating it as callable. If a model pack or receipt looks stale, preview cleanup first:
+
+```bash
+swift run --package-path apps/ValarCLI valartts models cleanup --dry-run
+```
+
+Use `models cleanup --apply`, `models remove <id>`, or `models purge-cache <id>` only after reviewing what the command will remove. Redact local paths before posting command output.
 
 If you are working on the MCP bridge too:
 

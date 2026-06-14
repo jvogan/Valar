@@ -7,7 +7,7 @@ struct ProjectsCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "projects",
         abstract: "Create, open, inspect, save, and close `.valarproject` bundles.",
-        subcommands: [New.self, Open.self, Save.self, Info.self, Close.self]
+        subcommands: [New.self, Import.self, Open.self, Save.self, Info.self, Close.self]
     )
 
     mutating func run() throws {
@@ -160,6 +160,151 @@ extension ProjectsCommand {
                         data: ProjectSessionPayloadDTO(
                             message: message,
                             project: ProjectsCommand.projectSessionDTO(session)
+                        )
+                    )
+                } else {
+                    print(message)
+                }
+            }
+        }
+    }
+
+    struct Import: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "import",
+            abstract: "Import a TXT, Markdown, or simple dialogue script file into a new `.valarproject` bundle."
+        )
+
+        @Argument(help: "TXT, Markdown, or simple dialogue script file to import.")
+        var input: String
+
+        @Option(name: .long, help: "Project title. Defaults to the input filename.")
+        var name: String?
+
+        @Option(name: .long, help: "Bundle output path. Defaults to Valar's Projects directory.")
+        var path: String?
+
+        @Option(name: .long, help: "Split mode: markdown-headings, paragraphs, lines, dialogue, whole-document.")
+        var splitMode: String = "markdown-headings"
+
+        @Option(name: .long, help: "Default speaker label for imported segments.")
+        var speaker: String?
+
+        mutating func run() throws {
+            let input = self.input
+            let explicitName = self.name
+            let explicitPath = self.path
+            let splitMode = self.splitMode
+            let speaker = self.speaker
+            let jsonRequested = OutputContext.jsonRequested
+
+            try ProjectsCommand.runAsync {
+                let context = try ProjectCommandContext()
+                try ProjectsCommand.ensureNoActiveSession(in: context)
+
+                let inputURL = ProjectsCommand.resolvedFileURL(for: input, fileManager: context.fileManager)
+                guard context.fileManager.fileExists(atPath: inputURL.path) else {
+                    throw ValidationError("Input file does not exist: \(inputURL.path)")
+                }
+                let fileExtension = inputURL.pathExtension.lowercased()
+                guard ["txt", "md", "markdown", "script"].contains(fileExtension) || fileExtension.isEmpty else {
+                    throw ValidationError("Unsupported import extension '.\(fileExtension)'. Start with TXT, Markdown, or script files.")
+                }
+
+                let rawText = try String(contentsOf: inputURL, encoding: .utf8)
+                let title = explicitName?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
+                    ?? inputURL.deletingPathExtension().lastPathComponent
+                let bundleURL = try ProjectsCommand.importBundleURL(
+                    explicitPath: explicitPath,
+                    title: title,
+                    context: context
+                )
+                let drafts = ProjectTextImporter.parse(
+                    text: rawText,
+                    fallbackTitle: title,
+                    splitMode: splitMode,
+                    defaultSpeakerLabel: speaker
+                )
+                guard drafts.isEmpty == false else {
+                    throw ValidationError("No importable text segments were found in \(inputURL.path).")
+                }
+
+                let project = try await context.projectStore.create(
+                    title: title,
+                    notes: "Imported from \(inputURL.lastPathComponent) using split mode '\(splitMode)'."
+                )
+                await context.projectStore.updateBundleURL(bundleURL, for: project.id)
+                let chapters = drafts.enumerated().map { index, draft in
+                    ChapterRecord(
+                        projectID: project.id,
+                        index: index,
+                        title: draft.title,
+                        script: draft.text,
+                        speakerLabel: draft.speakerLabel,
+                        estimatedDurationSeconds: Double(draft.text.count) / 14.0
+                    )
+                }
+
+                let createdAt = Date.now
+                let bundle = ProjectBundle(
+                    manifest: ProjectBundleManifest(
+                        version: 1,
+                        createdAt: createdAt,
+                        projectID: project.id,
+                        title: project.title,
+                        chapters: chapters.map {
+                            ProjectBundleManifest.ChapterSummary(
+                                id: $0.id,
+                                index: $0.index,
+                                title: $0.title
+                            )
+                        }
+                    ),
+                    snapshot: ProjectBundleSnapshot(
+                        project: project,
+                        chapters: chapters,
+                        renderJobs: [],
+                        exports: [],
+                        speakers: []
+                    )
+                )
+                _ = await context.runtime.createDocumentSession(for: bundle)
+                let session = try await ProjectsCommand.requireRuntimeSession(
+                    for: project.id,
+                    in: context
+                )
+                let snapshot = try await session.snapshot(
+                    preferredModelID: nil,
+                    createdAt: createdAt,
+                    version: 1
+                )
+                let location = ValarProjectBundleLocation(
+                    projectID: project.id,
+                    title: project.title,
+                    bundleURL: bundleURL
+                )
+                let manifest = try ProjectBundleWriter(fileManager: context.fileManager).write(
+                    snapshot.snapshot,
+                    to: location,
+                    createdAt: snapshot.manifest.createdAt
+                )
+                let activeSession = ActiveProjectSession(
+                    version: manifest.version,
+                    projectID: project.id,
+                    title: project.title,
+                    bundlePath: location.bundleURL.path,
+                    createdAt: manifest.createdAt,
+                    openedAt: .now
+                )
+                try context.sessionStore.save(activeSession)
+
+                let message = "Imported \(chapters.count) chapter(s) into '\(project.title)' at \(location.bundleURL.path)"
+                if jsonRequested {
+                    try OutputFormat.writeSuccess(
+                        command: OutputFormat.commandPath("projects import"),
+                        data: ProjectSessionPayloadDTO(
+                            message: message,
+                            project: ProjectsCommand.projectSessionDTO(activeSession)
                         )
                     )
                 } else {
@@ -467,6 +612,22 @@ extension ProjectsCommand {
         return normalizedURL
     }
 
+    static func resolvedFileURL(for path: String, fileManager: FileManager) -> URL {
+        let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if (trimmedPath as NSString).isAbsolutePath {
+            return URL(fileURLWithPath: trimmedPath, isDirectory: false).standardizedFileURL
+        }
+
+        let currentDirectory = URL(
+            fileURLWithPath: fileManager.currentDirectoryPath,
+            isDirectory: true
+        )
+        return URL(
+            fileURLWithPath: trimmedPath,
+            relativeTo: currentDirectory
+        ).standardizedFileURL
+    }
+
     static func resolvedURL(for path: String, fileManager: FileManager) -> URL {
         let trimmedPath = path.trimmingCharacters(in: .whitespacesAndNewlines)
         if (trimmedPath as NSString).isAbsolutePath {
@@ -481,6 +642,26 @@ extension ProjectsCommand {
             fileURLWithPath: trimmedPath,
             relativeTo: currentDirectory
         ).standardizedFileURL
+    }
+
+    static func importBundleURL(
+        explicitPath: String?,
+        title: String,
+        context: ProjectCommandContext
+    ) throws -> URL {
+        if let explicitPath = explicitPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+           explicitPath.isEmpty == false {
+            return normalizedBundleURL(for: explicitPath, fileManager: context.fileManager)
+        }
+
+        try context.fileManager.createDirectory(
+            at: context.paths.projectsDirectory,
+            withIntermediateDirectories: true
+        )
+        return context.paths.projectsDirectory
+            .appendingPathComponent(context.paths.sanitizeBundleName(title), isDirectory: true)
+            .appendingPathExtension("valarproject")
+            .standardizedFileURL
     }
 
     static func iso8601String(from date: Date) -> String {
@@ -628,4 +809,10 @@ private struct CapturedAsyncError: Codable {
     let kind: Kind
     let message: String?
     let exitCode: Int32?
+}
+
+private extension String {
+    var nonEmpty: String? {
+        isEmpty ? nil : self
+    }
 }

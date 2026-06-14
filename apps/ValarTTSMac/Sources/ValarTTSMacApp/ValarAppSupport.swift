@@ -1107,38 +1107,11 @@ final class ValarServiceHub {
             AudioPlayerService()
         }
         let synthesizeChapter: @Sendable (ModelIdentifier, RenderSynthesisOptions, String) async throws -> AudioChunk = { modelID, options, text in
-            let descriptor = try await Self.resolveDescriptor(
-                for: modelID,
-                modelRegistry: runtime.modelRegistry,
-                capabilityRegistry: runtime.capabilityRegistry,
-                modelCatalog: runtime.modelCatalog
+            try await runtime.synthesizeProjectChapter(
+                modelID: modelID,
+                options: options,
+                text: text
             )
-            let backendRuntime = BackendSelectionPolicy.Runtime(
-                availableBackends: [runtime.inferenceBackend.backendKind]
-            )
-            let configuration = try BackendSelectionPolicy().runtimeConfiguration(
-                for: descriptor,
-                residencyPolicy: .automatic,
-                runtime: backendRuntime
-            )
-            let request = SpeechSynthesisRequest(
-                model: modelID,
-                text: text,
-                language: options.normalizedLanguage,
-                sampleRate: descriptor.defaultSampleRate ?? 24_000,
-                responseFormat: "pcm_f32le",
-                temperature: options.temperature.map(Float.init),
-                topP: options.topP.map(Float.init),
-                repetitionPenalty: options.repetitionPenalty.map(Float.init),
-                maxTokens: options.maxTokens,
-                voiceBehavior: options.voiceBehavior
-            )
-            return try await runtime.withReservedTextToSpeechWorkflowSession(
-                descriptor: descriptor,
-                configuration: configuration
-            ) { reserved in
-                try await reserved.workflow.synthesize(request: request, in: reserved.session)
-            }
         }
         let projectRenderService = ProjectRenderService(
             renderQueue: runtime.renderQueue,
@@ -1784,28 +1757,6 @@ final class ValarServiceHub {
             title: record.title,
             synthesisOptions: record.synthesisOptions
         )
-    }
-
-    private static func resolveDescriptor(
-        for identifier: ModelIdentifier,
-        modelRegistry: ModelRegistry,
-        capabilityRegistry: CapabilityRegistry,
-        modelCatalog: ModelCatalog
-    ) async throws -> ModelDescriptor {
-        if let descriptor = await modelRegistry.descriptor(for: identifier) {
-            return descriptor
-        }
-
-        if let descriptor = await capabilityRegistry.descriptor(for: identifier) {
-            return descriptor
-        }
-
-        let supportedModels = try await modelCatalog.supportedModels()
-        if let descriptor = supportedModels.first(where: { $0.id == identifier })?.descriptor {
-            return descriptor
-        }
-
-        throw ProjectRenderServiceError.missingModel(identifier)
     }
 
     private func runtimeConfiguration(

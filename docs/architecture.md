@@ -19,6 +19,8 @@ The shared runtime lives in `Packages/ValarCore`:
 - audio decode, playback, export, and resampling live in `Packages/ValarAudio`
 - persistence and project storage live in `Packages/ValarPersistence`
 
+Shared workflow behavior should live in `ValarCore` when the CLI, daemon, or app can reasonably reuse it. Frontends should own presentation, command parsing, HTTP routing, and UI state, but not duplicate core model-selection, render orchestration, or DTO contracts.
+
 ## Public Entry Points
 
 ### CLI

@@ -29,6 +29,20 @@ The bridge assumes the daemon is available on `http://127.0.0.1:8787` unless `VA
 
 Bridge storage defaults to `~/Library/Application Support/Valar/bridge-storage`. Override it with `VALARTTS_BRIDGE_STORAGE_ROOT` if you want a different local directory.
 
+Recommended readiness sequence:
+
+1. Call `valar_status` or `health_check`.
+2. Confirm the model you need is `installed`, not only `supported` or `cached`.
+3. Install missing models with `valar_install_model`.
+4. Use `get_operation_status` for async install progress.
+
+Public bridge tools:
+
+- `valar_models`, `valar_install_model`, `remove_model`, `purge_model_cache`
+- `valar_voices`, `valar_create_voice`, `valar_design_voice`, `valar_clone_voice_from_file`, `valar_delete_voice`
+- `valar_speak`, `valar_transcribe`, `valar_align`
+- `create_session`, `list_chapters`, `add_chapter`, `update_chapter`, `save_session`, `close_session`
+
 ## When To Use Which Surface
 
 - Use the **CLI** for the fastest first success and simple scripts

@@ -205,7 +205,7 @@ final class ValarModelKitTests: XCTestCase {
     }
 
     func testSupportedModelCatalogIncludesVoxtralWithExplicitLicense() {
-        let entry = SupportedModelCatalog.entry(for: VoxtralCatalog.modelIdentifier)
+        let entry = SupportedModelCatalog.entry(for: VoxtralCatalog.mlx4BitModelIdentifier)
 
         XCTAssertEqual(entry?.manifest.familyID, .voxtralTTS)
         XCTAssertEqual(entry?.manifest.licenses.first?.name, VoxtralCatalog.licenseName)
@@ -213,8 +213,8 @@ final class ValarModelKitTests: XCTestCase {
         XCTAssertEqual(entry?.manifest.notes, "CC BY-NC 4.0 license. Non-commercial use only. Attribution required. Includes 20 preset voices.")
     }
 
-    func testVoxtralCatalogIncludesRawPresetVoiceArtifacts() throws {
-        let entry = try XCTUnwrap(SupportedModelCatalog.entry(for: VoxtralCatalog.modelIdentifier))
+    func testVoxtralFamilyCatalogIncludesRawPresetVoiceArtifacts() throws {
+        let entry = try XCTUnwrap(VoxtralCatalog.supportedEntries.first { $0.id == VoxtralCatalog.modelIdentifier })
         let relativePaths = Set(entry.manifest.artifacts.map { $0.relativePath })
 
         for preset in VoxtralCatalog.presetVoices {
@@ -225,8 +225,8 @@ final class ValarModelKitTests: XCTestCase {
     }
 
     func testVoxtralQuantizedCatalogEntriesArePresent() throws {
-        let fourBit = try XCTUnwrap(SupportedModelCatalog.entry(for: VoxtralCatalog.mlx4BitModelIdentifier))
-        let sixBit = try XCTUnwrap(SupportedModelCatalog.entry(for: VoxtralCatalog.mlx6BitModelIdentifier))
+        let fourBit = try XCTUnwrap(VoxtralCatalog.supportedEntries.first { $0.id == VoxtralCatalog.mlx4BitModelIdentifier })
+        let sixBit = try XCTUnwrap(VoxtralCatalog.supportedEntries.first { $0.id == VoxtralCatalog.mlx6BitModelIdentifier })
 
         XCTAssertEqual(fourBit.manifest.supportedBackends.first?.preferredQuantization, "4bit")
         XCTAssertEqual(sixBit.manifest.supportedBackends.first?.preferredQuantization, "6bit")
@@ -362,14 +362,14 @@ final class ValarModelKitTests: XCTestCase {
     func testCuratedEntriesIncludeNonCommercialModelsWhenEnabled() {
         let curated = SupportedModelCatalog.curatedEntries(includeNonCommercial: true)
 
-        XCTAssertTrue(curated.contains(where: { $0.id == VoxtralCatalog.modelIdentifier }))
+        XCTAssertFalse(curated.contains(where: { $0.id == VoxtralCatalog.modelIdentifier }))
         XCTAssertTrue(curated.contains(where: { $0.id == VoxtralCatalog.mlx4BitModelIdentifier }))
-        XCTAssertTrue(curated.contains(where: { $0.id == VoxtralCatalog.mlx6BitModelIdentifier }))
+        XCTAssertFalse(curated.contains(where: { $0.id == VoxtralCatalog.mlx6BitModelIdentifier }))
     }
 
     func testTadaCatalogUsesDocumentedCheckpointLayout() throws {
-        let oneB = try XCTUnwrap(SupportedModelCatalog.entry(for: TadaCatalog.tada1BModelIdentifier))
-        let threeB = try XCTUnwrap(SupportedModelCatalog.entry(for: TadaCatalog.tada3BModelIdentifier))
+        let oneB = try XCTUnwrap(TadaCatalog.supportedEntries.first { $0.id == TadaCatalog.tada1BModelIdentifier })
+        let threeB = try XCTUnwrap(TadaCatalog.supportedEntries.first { $0.id == TadaCatalog.tada3BModelIdentifier })
 
         XCTAssertTrue(oneB.manifest.artifacts.contains { $0.relativePath == "model/config.json" })
         XCTAssertTrue(oneB.manifest.artifacts.contains { $0.relativePath == "model/weights.safetensors" })
@@ -391,7 +391,7 @@ final class ValarModelKitTests: XCTestCase {
     }
 
     func testOrpheusCatalogAdvertisesPresetVoicesAndEmotionNotes() throws {
-        let entry = try XCTUnwrap(SupportedModelCatalog.entry(for: "mlx-community/orpheus-3b-0.1-ft-bf16"))
+        let entry = try XCTUnwrap(OrpheusCatalog.supportedEntries.first { $0.id == "mlx-community/orpheus-3b-0.1-ft-bf16" })
 
         XCTAssertTrue(entry.manifest.capabilities.contains(.presetVoices))
         XCTAssertEqual(entry.manifest.presetVoices?.map(\.name), ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"])
@@ -400,7 +400,7 @@ final class ValarModelKitTests: XCTestCase {
     }
 
     func testChatterboxCatalogAdvertisesConditioningCapabilities() throws {
-        let entry = try XCTUnwrap(SupportedModelCatalog.entry(for: "mlx-community/Chatterbox-TTS-fp16"))
+        let entry = try XCTUnwrap(ChatterboxCatalog.supportedEntries.first { $0.id == "mlx-community/Chatterbox-TTS-fp16" })
 
         XCTAssertTrue(entry.manifest.capabilities.contains(.voiceCloning))
         XCTAssertTrue(entry.manifest.capabilities.contains(.audioConditioning))

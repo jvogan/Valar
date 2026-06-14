@@ -35,5 +35,5 @@ jobs:
       - name: Bootstrap public native toolchain
         run: bash ./tools/bootstrap.sh native --with-bridge
 
-      - name: Validate public native surface
+      - name: Validate public native surface and safe tests
         run: bash ./tools/validate.sh --with-bridge

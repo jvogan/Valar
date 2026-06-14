@@ -49,7 +49,39 @@ That repo-local state directory is gitignored in this public repo.
 ```bash
 make quickstart
 swift run --package-path apps/ValarCLI valartts models list
+swift run --package-path apps/ValarCLI valartts models status
+swift run --package-path apps/ValarCLI valartts doctor --json
 ```
+
+Model state terms:
+
+- `supported`: the model is in Valar's public catalog, but no local artifacts are registered yet.
+- `cached`: a reusable upstream cache appears to be present, but Valar still needs `models install <id>` to register a model pack.
+- `installed`: Valar has a registered local model pack and can attempt to load it.
+- `resident`: the daemon has the model loaded or warming in the current runtime.
+
+Useful cleanup commands:
+
+```bash
+swift run --package-path apps/ValarCLI valartts models cleanup --dry-run
+swift run --package-path apps/ValarCLI valartts models cleanup --apply
+swift run --package-path apps/ValarCLI valartts models remove <id>
+swift run --package-path apps/ValarCLI valartts models purge-cache <id>
+```
+
+Use `cleanup --dry-run` before deleting anything. `models remove` removes Valar's installed model pack for one ID. `models purge-cache` removes shared Hugging Face cache entries for that ID and does not replace `models remove`.
+
+## Project Import
+
+Create a `.valarproject` bundle from a local TXT, Markdown, or simple dialogue script file:
+
+```bash
+swift run --package-path apps/ValarCLI valartts projects import ./script.md --split-mode markdown-headings
+swift run --package-path apps/ValarCLI valartts projects info
+swift run --package-path apps/ValarCLI valartts projects save
+```
+
+Supported split modes are `markdown-headings`, `paragraphs`, `lines`, `dialogue`, and `whole-document`. Dialogue mode understands simple speaker prefixes such as `[Narrator] text` and `Narrator: text`.
 
 ## One-Command Smoke Tests
 
@@ -84,6 +116,14 @@ swift run --package-path apps/ValarCLI valartts speak \
 ```
 
 ## Qwen: Main Lane
+
+Qwen has three public TTS checkpoints:
+
+- `Base`: main narrator lane, stable voices, and reference-audio/stabilized voice workflows.
+- `VoiceDesign`: text-described voice creation for expressive short and medium clips.
+- `CustomVoice`: official Qwen named-speaker lane.
+
+For consistent long narration, prefer `VoiceDesign` first, then `voices stabilize`, then speak with the stabilized voice on the `Base` checkpoint. Let `voiceBehavior` stay on its default `auto` behavior unless you have a specific reason to force `expressive` or `stableNarrator`.
 
 ### Qwen TTS narrator
 
@@ -163,6 +203,26 @@ swift run --package-path apps/ValarCLI valartts speak \
 VibeVoice should be presented as preset-only, English-first, and preview-only. It is not the default narrator lane.
 During install, Valar materializes the companion tokenizer from `Qwen/Qwen2.5-0.5B` automatically when the MLX VibeVoice pack does not ship it directly.
 
+VibeVoice does not support local voice cloning, voice design, or reference-audio conditioning. Use Qwen for those workflows.
+
+Preset voice names are:
+
+```text
+en-Carter_man, en-Davis_man, en-Emma_woman, en-Frank_man, en-Grace_woman, en-Mike_man
+de-Spk0_man, de-Spk1_woman
+fr-Spk0_man, fr-Spk1_woman
+in-Samuel_man
+it-Spk0_woman, it-Spk1_man
+jp-Spk0_man, jp-Spk1_woman
+kr-Spk0_woman, kr-Spk1_man
+nl-Spk0_man, nl-Spk1_woman
+pl-Spk0_man, pl-Spk1_woman
+pt-Spk0_woman, pt-Spk1_man
+sp-Spk0_woman, sp-Spk1_man
+```
+
+`random` selects a preset at synthesis time. If you pass `language` without `voice`, Valar chooses a deterministic default for that language. Hindi remains exploratory and is not part of the release-facing default quality set.
+
 ## Voxtral: Explicit Non-Commercial Opt-In
 
 ```bash
@@ -174,6 +234,8 @@ swift run --package-path apps/ValarCLI valartts speak \
   --text "Hello from Voxtral." \
   --output "${TMPDIR:-/tmp}/voxtral.wav"
 ```
+
+Voxtral is preset-only in this local public surface. Do not route reference-audio cloning, saved voice design, or reusable custom voices to Voxtral. Use it only when you intentionally opt into non-commercial software and want a multilingual preset voice.
 
 ## Daemon Checks
 

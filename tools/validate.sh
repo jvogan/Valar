@@ -117,10 +117,22 @@ build_targets=(
   "apps/ValarDaemon"
 )
 
+test_targets=(
+  "Packages/ValarModelKit"
+  "Packages/ValarPersistence"
+  "Packages/ValarCore"
+)
+
 for dir in "${build_targets[@]}"; do
   [[ -d "$dir" ]] || continue
   echo "Building $dir"
   swift build --package-path "$dir"
+done
+
+for dir in "${test_targets[@]}"; do
+  [[ -d "$dir" ]] || continue
+  echo "Testing $dir"
+  swift test --package-path "$dir"
 done
 
 echo "Building MLX metallib for SPM outputs"
