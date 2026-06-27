@@ -20,6 +20,11 @@ final class ValarModelKitTests: XCTestCase {
         XCTAssertEqual(identifier.inferredFamilyHint, .voxtralTTS)
     }
 
+    func testModelIdentifierInfersAppleSpeechHints() {
+        XCTAssertEqual(ModelIdentifier("apple/system-tts").inferredFamilyHint, .appleSpeechSynthesis)
+        XCTAssertEqual(ModelIdentifier("apple/system-asr").inferredFamilyHint, .appleSpeechRecognition)
+    }
+
     func testCapabilityIDIsOpenAndSupportsStaticConstants() {
         let builtIn: CapabilityID = .speechSynthesis
         let custom = CapabilityID("voice.emotion_control")
@@ -202,6 +207,23 @@ final class ValarModelKitTests: XCTestCase {
         XCTAssertEqual(sopranoEntry?.manifest.domain, .tts)
         XCTAssertTrue(sopranoEntry?.manifest.capabilities.contains(.speechSynthesis) == true)
         XCTAssertEqual(sopranoEntry?.manifest.supportedBackends.map(\.backendKind), [.mlx])
+    }
+
+    func testSupportedModelCatalogIncludesAppleSystemBackups() {
+        let ttsEntry = SupportedModelCatalog.entry(for: AppleSpeechCatalog.ttsModelIdentifier)
+        let asrEntry = SupportedModelCatalog.entry(for: AppleSpeechCatalog.asrModelIdentifier)
+
+        XCTAssertEqual(ttsEntry?.manifest.familyID, .appleSpeechSynthesis)
+        XCTAssertEqual(ttsEntry?.manifest.domain, .tts)
+        XCTAssertEqual(ttsEntry?.manifest.supportedBackends.map(\.backendKind), [.apple])
+        XCTAssertEqual(ttsEntry?.manifest.artifacts, [])
+        XCTAssertFalse(ttsEntry?.isRecommended ?? true)
+
+        XCTAssertEqual(asrEntry?.manifest.familyID, .appleSpeechRecognition)
+        XCTAssertEqual(asrEntry?.manifest.domain, .stt)
+        XCTAssertEqual(asrEntry?.manifest.supportedBackends.map(\.backendKind), [.apple])
+        XCTAssertEqual(asrEntry?.manifest.artifacts, [])
+        XCTAssertFalse(asrEntry?.isRecommended ?? true)
     }
 
     func testSupportedModelCatalogIncludesVoxtralWithExplicitLicense() {

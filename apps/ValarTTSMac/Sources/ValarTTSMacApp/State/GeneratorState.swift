@@ -171,13 +171,10 @@ final class GeneratorState {
         do {
             let preparedSelectedVoice = try await services.voiceReadyForSynthesis(selectedVoice)
             let descriptor = try await services.descriptor(for: activeModelID)
-            let runtime = BackendSelectionPolicy.Runtime(
-                availableBackends: [services.inferenceBackend.backendKind]
-            )
             let configuration = try BackendSelectionPolicy().runtimeConfiguration(
                 for: descriptor,
                 residencyPolicy: .automatic,
-                runtime: runtime
+                runtime: services.runtime.backendSelectionRuntime()
             )
             generationProgress = 0.35
 

@@ -612,13 +612,13 @@ final class ValarTTSMacAppTests: XCTestCase {
         let snapshot = await hub.snapshot()
         let diagnosticsSnapshot = await hub.diagnosticsSnapshot()
 
-        XCTAssertEqual(snapshot.modelCount, 7)
+        XCTAssertEqual(snapshot.modelCount, 9)
         XCTAssertEqual(snapshot.installedModelCount, 0)
         XCTAssertEqual(snapshot.recommendedModelCount, 5)
         XCTAssertEqual(snapshot.availableGenerationModels.count, 5)
         XCTAssertEqual(snapshot.availableRecognitionModels.count, 2)
         XCTAssertTrue(snapshot.compatibilityReport.preservedModelIdentifiers.isEmpty)
-        XCTAssertEqual(diagnosticsSnapshot.compatibilityReport.preservedModelIdentifiers.count, 7)
+        XCTAssertEqual(diagnosticsSnapshot.compatibilityReport.preservedModelIdentifiers.count, 9)
         XCTAssertNotNil(snapshot.availableGenerationModels.first?.id)
         XCTAssertFalse(snapshot.catalogModels.contains(where: { $0.familyID == .tadaTTS }))
     }
@@ -981,7 +981,7 @@ final class ValarTTSMacAppTests: XCTestCase {
         let runtimeConfiguration = RuntimeConfiguration()
         let modelRegistry = ModelRegistry(configuration: runtimeConfiguration)
         let capabilityRegistry = CapabilityRegistry()
-        let modelPackRegistry = ModelPackRegistry()
+        let modelPackRegistry = ModelPackRegistry(paths: appPaths)
         let modelCatalog = ModelCatalog(
             supportedSource: SupportedCatalogSource.curated(),
             catalogStore: modelPackRegistry,
@@ -1012,8 +1012,31 @@ final class ValarTTSMacAppTests: XCTestCase {
         }
 
         let sopranoEntry = try XCTUnwrap(SopranoCatalog.supportedEntries.first)
+        let sopranoPersistenceManifest = ModelCatalog.makePersistenceManifest(from: sopranoEntry.manifest)
+        let sopranoPackDirectory = try appPaths.modelPackDirectory(
+            familyID: sopranoPersistenceManifest.familyID,
+            modelID: sopranoPersistenceManifest.modelID
+        )
+        try FileManager.default.createDirectory(at: sopranoPackDirectory, withIntermediateDirectories: true)
+        let manifestURL = try appPaths.modelPackManifestURL(
+            familyID: sopranoPersistenceManifest.familyID,
+            modelID: sopranoPersistenceManifest.modelID
+        )
+        try FileManager.default.createDirectory(
+            at: manifestURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try JSONEncoder().encode(sopranoPersistenceManifest).write(to: manifestURL)
+        for artifact in sopranoPersistenceManifest.artifactSpecs where artifact.required && !artifact.relativePath.hasSuffix("/") {
+            let artifactURL = sopranoPackDirectory.appendingPathComponent(artifact.relativePath, isDirectory: false)
+            try FileManager.default.createDirectory(
+                at: artifactURL.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            try Data([0]).write(to: artifactURL)
+        }
         let installResult = try await modelInstaller.install(
-            manifest: ModelCatalog.makePersistenceManifest(from: sopranoEntry.manifest),
+            manifest: sopranoPersistenceManifest,
             sourceKind: .remoteURL,
             sourceLocation: try XCTUnwrap(sopranoEntry.remoteURL?.absoluteString),
             notes: "Installed during pluggability proof"
@@ -1484,7 +1507,8 @@ final class ValarTTSMacAppTests: XCTestCase {
         XCTAssertFalse(generationModels.isEmpty)
 
         XCTAssertTrue(generationModels.allSatisfy { $0.descriptor.capabilities.contains(.speechSynthesis) })
-        XCTAssertTrue(generationModels.allSatisfy { $0.installState == .supported })
+        XCTAssertTrue(generationModels.allSatisfy { $0.installState != .installed })
+        XCTAssertFalse(generationModels.contains(where: { $0.supportedBackends.contains(.apple) }))
         XCTAssertTrue(generationModels.contains(where: { $0.familyID == .qwen3TTS }))
     }
 

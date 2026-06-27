@@ -160,6 +160,8 @@ soprano_json="$tmp_root/soprano.json"
 qwen_json="$tmp_root/qwen.json"
 vibevoice_json="$tmp_root/vibevoice.json"
 voxtral_json="$tmp_root/voxtral.json"
+apple_tts_json="$tmp_root/apple-tts.json"
+apple_asr_json="$tmp_root/apple-asr.json"
 doctor_json="$tmp_root/doctor.json"
 doctor_report_json="$tmp_root/doctor-report.json"
 doctor_err="$tmp_root/doctor.err"
@@ -171,6 +173,8 @@ expected_ids="$tmp_root/expected-model-ids.txt"
 "$cli_bin" models info mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16 --json >"$qwen_json"
 "$cli_bin" models info mlx-community/VibeVoice-Realtime-0.5B-4bit --json >"$vibevoice_json"
 VALARTTS_ENABLE_NONCOMMERCIAL_MODELS=1 "$cli_bin" models info mlx-community/Voxtral-4B-TTS-2603-mlx-4bit --json >"$voxtral_json"
+"$cli_bin" models info apple/system-tts --json >"$apple_tts_json"
+"$cli_bin" models info apple/system-asr --json >"$apple_asr_json"
 
 set +e
 "$cli_bin" doctor --json >"$doctor_json" 2>"$doctor_err"
@@ -179,6 +183,8 @@ set -e
 
 jq -r '.data.models[].id' "$models_json" | LC_ALL=C sort >"$actual_ids"
 cat >"$expected_ids" <<'EOF'
+apple/system-asr
+apple/system-tts
 mlx-community/Qwen3-ASR-0.6B-8bit
 mlx-community/Qwen3-ForcedAligner-0.6B-8bit
 mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16
@@ -198,16 +204,21 @@ jq -e '.ok == true and .data.model.id == "mlx-community/Soprano-1.1-80M-bf16" an
 jq -e '.ok == true and .data.model.id == "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16" and .data.model.supportTier == "supported" and .data.model.releaseEligible == true' "$qwen_json" >/dev/null
 jq -e '.ok == true and .data.model.id == "mlx-community/VibeVoice-Realtime-0.5B-4bit" and .data.model.supportTier == "preview" and .data.model.distributionTier == "compatibilityPreview" and .data.model.qualityTierByLanguage.en == "supported" and .data.model.qualityTierByLanguage.hi == "experimental"' "$vibevoice_json" >/dev/null
 jq -e '.ok == true and .data.model.id == "mlx-community/Voxtral-4B-TTS-2603-mlx-4bit" and .data.model.supportTier == "preview" and .data.model.releaseEligible == false and .data.model.licenseName == "CC BY-NC 4.0"' "$voxtral_json" >/dev/null
+jq -e '.ok == true and .data.model.id == "apple/system-tts" and .data.model.installState == "installed" and .data.model.supportTier == "supported" and .data.model.distributionTier == "bundledFirstRun"' "$apple_tts_json" >/dev/null
+jq -e '.ok == true and .data.model.id == "apple/system-asr" and .data.model.installState == "installed" and .data.model.supportTier == "supported" and .data.model.distributionTier == "bundledFirstRun"' "$apple_asr_json" >/dev/null
 jq -s '
   map(select(.command == "valartts doctor" and .data != null and .ok == true))
   | .[0]
 ' "$doctor_json" >"$doctor_report_json"
 jq -e '.ok == true and .data.localInferenceAssetsReady == true' "$doctor_report_json" >/dev/null
+jq -e '.ok == true and ([.data.systemBackupModelDetails[].id] | index("apple/system-tts") and index("apple/system-asr"))' "$doctor_report_json" >/dev/null
 
 rg -q "mlx-community/Soprano-1.1-80M-bf16" README.md docs/working-models.md docs/model-quickstart.md
 rg -q "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16" docs/working-models.md docs/model-quickstart.md
 rg -q "mlx-community/VibeVoice-Realtime-0.5B-4bit" docs/working-models.md docs/model-quickstart.md
 rg -q "mlx-community/Voxtral-4B-TTS-2603-mlx-4bit" docs/working-models.md docs/model-quickstart.md
+rg -q "apple/system-tts" README.md docs/working-models.md docs/model-quickstart.md
+rg -q "apple/system-asr" README.md docs/working-models.md docs/model-quickstart.md
 rg -q "make quickstart" README.md docs/model-quickstart.md docs/prerequisites-and-expectations.md AGENTS.md
 rg -q "make first-clip" README.md docs/model-quickstart.md AGENTS.md
 [[ -f "docs/prerequisites-and-expectations.md" ]]

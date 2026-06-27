@@ -24,6 +24,17 @@ Only the exact IDs below are part of the main public onboarding path.
 | VibeVoice Realtime 0.5B (4-bit) | `mlx-community/VibeVoice-Realtime-0.5B-4bit` | Preview | Preview-only optional install | About `700 MB` | MIT | Fast preset-voice TTS, English-first |
 | Voxtral 4B-TTS 2603 (MLX 4-bit) | `mlx-community/Voxtral-4B-TTS-2603-mlx-4bit` | Preview | Explicit non-commercial opt-in | About `2.4 GB` | CC BY-NC 4.0 | Non-commercial multilingual preset-voice lane |
 
+## System Backups
+
+These IDs are built into macOS and require no model download. They are fallback surfaces, not the recommended public model lanes.
+
+| Surface | Model ID | Support status | Download posture | License | Best use |
+| --- | --- | --- | --- | --- | --- |
+| Apple System TTS | `apple/system-tts` | Supported backup | Built in, no download | macOS system service | Emergency/default speech when no MLX TTS model is installed |
+| Apple System ASR | `apple/system-asr` | Supported backup | Built in, no download | macOS system service | App-hosted local transcription when macOS Speech permission is available |
+
+`apple/system-asr` uses on-device macOS Speech recognition. Raw CLI and daemon binaries may not be able to request Speech permission because they do not carry an app Info.plist with `NSSpeechRecognitionUsageDescription`; install `Qwen ASR` for the default CLI and daemon transcription path.
+
 ## Public API Fields
 
 The CLI and daemon expose these public compatibility fields directly:
@@ -38,6 +49,7 @@ The CLI and daemon expose these public compatibility fields directly:
 - Footprint values are rough public planning numbers for local installs on Apple Silicon and can drift as upstream packs change.
 - The public docs do not make universal latency or real-time-factor claims. Measure on your own hardware with your own text and installed model set before relying on throughput numbers.
 - `Soprano` is the shortest path to a working first clip.
+- Apple System TTS and ASR are backup surfaces. They are useful for graceful degradation, but do not replace the Soprano/Qwen onboarding recommendations.
 - In this source-first repo, `bundledFirstRun` means “recommended first install” rather than “weights are checked into git.”
 - The table above translates those enum-style API fields into plain-language download guidance.
 - `Qwen` is the main supported product lane for high-quality speech, transcription, and alignment.

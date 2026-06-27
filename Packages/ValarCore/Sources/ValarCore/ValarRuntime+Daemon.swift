@@ -36,7 +36,12 @@ public extension ValarRuntime {
         } catch {
             allModels = (try? await modelCatalog.supportedModels()) ?? []
         }
-        let installedModels = allModels.filter { $0.installState == .installed }
+        let availableBackends = backendSelectionRuntime().availableBackends
+        let installedModels = allModels
+            .filter { $0.installState == .installed }
+            .filter { model in
+                model.supportedBackends.contains { availableBackends.contains($0) }
+            }
         let installedIDs = installedModels.map { $0.id.rawValue }.sorted()
         let cachedIDs = allModels
             .filter { $0.installState == .cached }
@@ -50,12 +55,14 @@ public extension ValarRuntime {
             .map { $0.id.rawValue }
             .sorted()
         let resident = snapshots.filter { $0.state == .resident }
-        let residentTTS = resident.contains { $0.descriptor.capabilities.contains(.speechSynthesis) }
-        let residentASR = resident.contains { $0.descriptor.capabilities.contains(.speechRecognition) }
-        let residentAlignment = resident.contains { $0.descriptor.capabilities.contains(.forcedAlignment) }
-        let installedTTS = installedModels.contains { $0.descriptor.capabilities.contains(.speechSynthesis) }
-        let installedASR = installedModels.contains { $0.descriptor.capabilities.contains(.speechRecognition) }
-        let installedAlignment = installedModels.contains { $0.descriptor.capabilities.contains(.forcedAlignment) }
+        let runnableResident = resident.filter { Self.hostCanRunSpeechDescriptor($0.descriptor) }
+        let runnableInstalledModels = installedModels.filter { Self.hostCanRunSpeechDescriptor($0.descriptor) }
+        let residentTTS = runnableResident.contains { $0.descriptor.capabilities.contains(.speechSynthesis) }
+        let residentASR = runnableResident.contains { $0.descriptor.capabilities.contains(.speechRecognition) }
+        let residentAlignment = runnableResident.contains { $0.descriptor.capabilities.contains(.forcedAlignment) }
+        let installedTTS = runnableInstalledModels.contains { $0.descriptor.capabilities.contains(.speechSynthesis) }
+        let installedASR = runnableInstalledModels.contains { $0.descriptor.capabilities.contains(.speechRecognition) }
+        let installedAlignment = runnableInstalledModels.contains { $0.descriptor.capabilities.contains(.forcedAlignment) }
         let ttsReady = residentTTS || installedTTS
         let asrReady = residentASR || installedASR
         let alignmentReady = residentAlignment || installedAlignment
@@ -67,7 +74,8 @@ public extension ValarRuntime {
             .unavailable
         }
         let inferenceAssets = LocalInferenceAssetsStatus.currentProcess()
-        let inferenceAssetsReady = inferenceAssets.metallibAvailable
+        let installedMLXModels = installedModels.filter { $0.supportedBackends.contains(.mlx) }
+        let inferenceAssetsReady = installedMLXModels.isEmpty || inferenceAssets.metallibAvailable
 
         if ttsReady || asrReady || alignmentReady {
             return DaemonReadyDTO(
@@ -418,9 +426,7 @@ public extension ValarRuntime {
         }
 
         let policy = BackendSelectionPolicy()
-        let backendRuntime = BackendSelectionPolicy.Runtime(
-            availableBackends: [inferenceBackend.backendKind]
-        )
+        let backendRuntime = backendSelectionRuntime()
 
         for model in missingWarmModels {
             guard let configuration = try? policy.runtimeConfiguration(
@@ -514,7 +520,9 @@ public extension ValarRuntime {
         from models: [CatalogModel],
         configuredModelIDs: [ModelIdentifier]? = nil
     ) -> [ModelIdentifier] {
-        let installed = models.filter { $0.installState == .installed }
+        let installed = models.filter {
+            $0.installState == .installed && Self.hostCanRunSpeechDescriptor($0.descriptor)
+        }
         guard !installed.isEmpty else { return [] }
 
         if let configuredModelIDs, !configuredModelIDs.isEmpty {
@@ -598,9 +606,7 @@ public extension ValarRuntime {
         guard !warmModels.isEmpty else { return }
 
         let policy = BackendSelectionPolicy()
-        let backendRuntime = BackendSelectionPolicy.Runtime(
-            availableBackends: [inferenceBackend.backendKind]
-        )
+        let backendRuntime = backendSelectionRuntime()
         for model in warmModels {
             guard let configuration = try? policy.runtimeConfiguration(
                 for: model.descriptor,
@@ -745,13 +751,31 @@ public extension ValarRuntime {
             missing.append(hiddenVoxtralReason)
         }
         let inferenceAssets = LocalInferenceAssetsStatus.currentProcess()
-        if !metallibAvailable { missing.append(inferenceAssets.failureReason) }
+        let installedMLXModels = installed.filter { $0.supportedBackends.contains(.mlx) }
+        if !metallibAvailable, !installedMLXModels.isEmpty { missing.append(inferenceAssets.failureReason) }
         if !daemonReachable { missing.append("Start the daemon: run 'valarttsd'") }
+        let canRun: ([CatalogModel]) -> Bool = { models in
+            models.contains { model in
+                guard Self.hostCanRunSpeechDescriptor(model.descriptor) else { return false }
+                return model.supportedBackends.contains { $0 != .mlx } || metallibAvailable
+            }
+        }
+        let canSpeakNow = canRun(ttsList)
+        let canTranscribeNow = canRun(asrList)
+        let canAlignNow = canRun(alignList)
+        let canCloneVoiceNow = canRun(cloneList)
+        if !canTranscribeNow,
+           asrList.contains(where: { $0.descriptor.familyID == .appleSpeechRecognition }),
+           !AppleSpeechPrivacy.hostHasSpeechRecognitionUsageDescription() {
+            missing.append(
+                "Apple System ASR is available, but this host cannot request macOS Speech permission because its Info.plist lacks NSSpeechRecognitionUsageDescription. Use the Valar macOS app, or install an MLX ASR model for CLI and daemon transcription."
+            )
+        }
         return CapabilitySnapshotDTO(
-            canSpeakNow: !ttsList.isEmpty && metallibAvailable,
-            canTranscribeNow: !asrList.isEmpty && metallibAvailable,
-            canAlignNow: !alignList.isEmpty && metallibAvailable,
-            canCloneVoiceNow: !cloneList.isEmpty && metallibAvailable,
+            canSpeakNow: canSpeakNow,
+            canTranscribeNow: canTranscribeNow,
+            canAlignNow: canAlignNow,
+            canCloneVoiceNow: canCloneVoiceNow,
             installedTTSModels: ttsList.map(\.id.rawValue),
             installedASRModels: asrList.map(\.id.rawValue),
             cachedButNotRegistered: cached.map(\.id.rawValue),
@@ -762,6 +786,13 @@ public extension ValarRuntime {
             inferenceAssetIssue: metallibAvailable ? nil : inferenceAssets.failureReason,
             missingPrerequisites: missing
         )
+    }
+
+    private static func hostCanRunSpeechDescriptor(_ descriptor: ModelDescriptor) -> Bool {
+        if descriptor.familyID == .appleSpeechRecognition {
+            return AppleSpeechPrivacy.hostHasSpeechRecognitionUsageDescription()
+        }
+        return true
     }
 
     func purgeRouteModelSharedCache(id: String) async throws -> ModelSharedCachePurgeDTO {

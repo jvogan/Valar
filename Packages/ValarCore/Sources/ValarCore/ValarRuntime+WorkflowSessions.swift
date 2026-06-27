@@ -345,10 +345,12 @@ extension ValarRuntime {
 
         await modelRegistry.markState(.resident, for: descriptor.id)
         await modelRegistry.reserveSession(for: descriptor.id)
-        await (inferenceBackend as? MLXInferenceBackend)?.beginSession(for: descriptor.id)
+        await (inferenceBackend as? any ModelSessionTrackingInferenceBackend)?
+            .beginModelSession(for: descriptor.id)
 
         let cleaner = ReservedWorkflowCleaner { [inferenceBackend, modelRegistry] in
-            await (inferenceBackend as? MLXInferenceBackend)?.endSession(for: descriptor.id)
+            await (inferenceBackend as? any ModelSessionTrackingInferenceBackend)?
+                .endModelSession(for: descriptor.id)
             await modelRegistry.releaseSession(for: descriptor.id)
             await modelRegistry.touch(descriptor.id)
         }

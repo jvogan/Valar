@@ -18,6 +18,7 @@ Use this repo as the public-facing source tree for Valar. Keep the onboarding pa
 
 - Start with `make quickstart`, then `make first-clip` before asking a user to synthesize, transcribe, or align for the first time.
 - Use the blessed public families only: `Soprano`, `Qwen`, `VibeVoice`, and `Voxtral`.
+- Treat `apple/system-tts` and `apple/system-asr` as built-in backup surfaces, not blessed model-family recommendations.
 - When a newcomer asks for the fastest working path, recommend `Soprano` first.
 - When a user wants the main long-form lane, recommend `Qwen` first.
 - When a user wants preset voices and accepts preview quality, use `VibeVoice`.

@@ -305,7 +305,8 @@ public actor ModelCatalog {
             } else {
                 cachedOnDisk = false
             }
-            let installState: CatalogInstallState = materializedInstalledRecord != nil ? .installed
+            let builtinInstalled = Self.isBuiltinInstalledEntry(entry)
+            let installState: CatalogInstallState = materializedInstalledRecord != nil || builtinInstalled ? .installed
                 : cachedOnDisk ? .cached
                 : .supported
 
@@ -341,6 +342,12 @@ public actor ModelCatalog {
 
         cachedModels = models
         return ordered(models.values)
+    }
+
+    private static func isBuiltinInstalledEntry(_ entry: SupportedModelCatalogEntry) -> Bool {
+        entry.remoteURL == nil
+            && entry.manifest.artifacts.isEmpty
+            && entry.manifest.supportedBackends.contains { $0.backendKind == .apple }
     }
 
     public func supportedModels() async throws -> [CatalogModel] {
@@ -405,8 +412,18 @@ public actor ModelCatalog {
             if lhs.isRecommended != rhs.isRecommended {
                 return lhs.isRecommended && !rhs.isRecommended
             }
+            let lhsSystemBackup = Self.isSystemBackupModel(lhs)
+            let rhsSystemBackup = Self.isSystemBackupModel(rhs)
+            if lhsSystemBackup != rhsSystemBackup {
+                return !lhsSystemBackup && rhsSystemBackup
+            }
             return lhs.descriptor.displayName < rhs.descriptor.displayName
         }
+    }
+
+    private static func isSystemBackupModel(_ model: CatalogModel) -> Bool {
+        model.providerURL == nil
+            && model.descriptor.supportedBackends.contains { $0.backendKind == .apple }
     }
 
     /// Returns the expected mlx-audio HuggingFace cache directory for a catalog entry,
@@ -793,6 +810,10 @@ public actor ModelCatalog {
             return .qwen3ASR
         case ModelFamilyID.qwen3ForcedAligner.rawValue:
             return .qwen3ForcedAligner
+        case ModelFamilyID.appleSpeechSynthesis.rawValue:
+            return .appleSpeechSynthesis
+        case ModelFamilyID.appleSpeechRecognition.rawValue:
+            return .appleSpeechRecognition
         case ModelFamilyID.voxtralTTS.rawValue:
             return .voxtralTTS
         case ModelFamilyID.tadaTTS.rawValue:
@@ -808,9 +829,9 @@ public actor ModelCatalog {
 
     static func inferredDomain(for familyID: ModelFamilyID) -> ModelDomain {
         switch familyID {
-        case .qwen3TTS, .voxtralTTS, .tadaTTS, .soprano:
+        case .qwen3TTS, .voxtralTTS, .tadaTTS, .soprano, .appleSpeechSynthesis:
             return .tts
-        case .qwen3ASR, .whisper:
+        case .qwen3ASR, .whisper, .appleSpeechRecognition:
             return .stt
         case .qwen3ForcedAligner:
             return .stt
@@ -859,6 +880,10 @@ public actor ModelCatalog {
             return [.speechRecognition, .tokenization, .translation]
         case .qwen3ForcedAligner:
             return [.speechRecognition, .forcedAlignment, .tokenization]
+        case .appleSpeechSynthesis:
+            return [.speechSynthesis, .presetVoices]
+        case .appleSpeechRecognition:
+            return [.speechRecognition]
         case .whisper:
             return [.speechRecognition, .tokenization]
         case .unknown:

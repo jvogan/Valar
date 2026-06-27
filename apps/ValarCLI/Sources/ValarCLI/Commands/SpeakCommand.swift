@@ -134,9 +134,7 @@ struct SpeakCommand: AsyncParsableCommand {
             : (voiceProfile: nil, vibeVoiceSelection: nil)
         let configuration = try BackendSelectionPolicy().runtimeConfiguration(
             for: descriptor,
-            runtime: BackendSelectionPolicy.Runtime(
-                availableBackends: [runtime.inferenceBackend.backendKind]
-            )
+            runtime: runtime.backendSelectionRuntime()
         )
         if configuration.backendKind == .mlx, !Self.checkMetallibAvailable() {
             throw SpeakCommandError.missingInferenceAssets(
@@ -491,6 +489,14 @@ struct SpeakCommand: AsyncParsableCommand {
                 "TADA models use saved voices, not named presets. " +
                 "Create a voice with 'valartts voices create --reference-audio <file>' then use the UUID. " +
                 "Or pass --reference-audio directly."
+            )
+        case .appleSpeechSynthesis:
+            return VoiceProfile(
+                label: trimmedIdentifier,
+                backendVoiceID: trimmedIdentifier,
+                sourceModel: descriptor.id,
+                localeIdentifier: language,
+                voiceKind: .preset
             )
         default:
             throw SpeakCommandError.invalidVoiceID(trimmedIdentifier)

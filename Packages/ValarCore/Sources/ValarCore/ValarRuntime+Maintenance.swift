@@ -77,9 +77,7 @@ public extension ValarRuntime {
         }
 
         let policy = BackendSelectionPolicy()
-        let runtime = BackendSelectionPolicy.Runtime(
-            availableBackends: [inferenceBackend.backendKind]
-        )
+        let runtime = backendSelectionRuntime()
 
         for model in catalogModels where model.installState == .installed {
             let runtimeConfiguration = try? policy.runtimeConfiguration(

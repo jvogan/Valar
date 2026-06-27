@@ -585,13 +585,10 @@ private extension ValarRuntime {
         voiceBehavior: SpeechSynthesisVoiceBehavior
     ) async throws -> AudioChunk {
         let resolvedDescriptor = try await descriptor(for: modelID)
-        let backendRuntime = BackendSelectionPolicy.Runtime(
-            availableBackends: [inferenceBackend.backendKind]
-        )
         let configuration = try BackendSelectionPolicy().runtimeConfiguration(
             for: resolvedDescriptor,
             residencyPolicy: .automatic,
-            runtime: backendRuntime
+            runtime: backendSelectionRuntime()
         )
 
         let request = SpeechSynthesisRequest(
