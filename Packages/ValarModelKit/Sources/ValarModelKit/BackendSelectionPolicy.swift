@@ -37,6 +37,7 @@ public struct BackendSelectionPolicy: Sendable {
         private static func defaultAvailableBackends() -> Set<BackendKind> {
             var backends: Set<BackendKind> = [.cpu, .mock]
 #if os(macOS)
+            backends.insert(.apple)
             backends.insert(.coreml)
             backends.insert(.metal)
 #if arch(arm64)

@@ -57,6 +57,8 @@ That repo-local state directory is gitignored in this public repo.
 
 See [docs/working-models.md](./docs/working-models.md) for exact install IDs, support posture, footprint, and license notes.
 
+Valar also exposes built-in macOS backup IDs, `apple/system-tts` and `apple/system-asr`. They require no model download and are not the recommended narrator or transcription lane; use them as system fallbacks. Apple System ASR depends on the host app being able to request macOS Speech permission, so the macOS app is the intended public host for that path.
+
 ## Agent And MCP Workflow
 
 Once the local CLI path works, the next public integration step is the MCP bridge:

@@ -64,6 +64,8 @@ public struct ModelFamilyID: RawRepresentable, Hashable, Codable, Sendable, Expr
     public static let qwen3TTS: Self = "qwen3_tts"
     public static let qwen3ASR: Self = "qwen3_asr"
     public static let qwen3ForcedAligner: Self = "qwen3_forced_aligner"
+    public static let appleSpeechSynthesis: Self = "apple_tts"
+    public static let appleSpeechRecognition: Self = "apple_asr"
     public static let soprano: Self = "soprano"
     public static let whisper: Self = "whisper"
     /// Experimental model family identifier for LFM2.5 Audio speech-to-speech spikes.
@@ -79,6 +81,7 @@ public struct ModelFamilyID: RawRepresentable, Hashable, Codable, Sendable, Expr
 }
 
 public enum BackendKind: String, CaseIterable, Codable, Sendable, Hashable {
+    case apple
     case mlx
     case coreml
     case metal
@@ -180,6 +183,10 @@ public struct ModelIdentifier: Hashable, Codable, Sendable, ExpressibleByStringL
         let parts = canonicalValue.split(separator: "/")
         guard let tail = parts.last else { return .unknown }
         let normalized = tail.replacingOccurrences(of: "-", with: "_").lowercased()
+        let normalizedIdentifier = canonicalValue
+            .replacingOccurrences(of: "-", with: "_")
+            .replacingOccurrences(of: "/", with: "_")
+            .lowercased()
 
         if normalized.contains("qwen3_tts") || normalized.contains("qwen3tts") {
             return .qwen3TTS
@@ -189,6 +196,12 @@ public struct ModelIdentifier: Hashable, Codable, Sendable, ExpressibleByStringL
         }
         if normalized.contains("qwen3_asr") {
             return .qwen3ASR
+        }
+        if normalizedIdentifier.contains("apple") && (normalizedIdentifier.contains("tts") || normalizedIdentifier.contains("speech_synthesis")) {
+            return .appleSpeechSynthesis
+        }
+        if normalizedIdentifier.contains("apple") && (normalizedIdentifier.contains("asr") || normalizedIdentifier.contains("speech_recognition")) {
+            return .appleSpeechRecognition
         }
         if normalized.contains("soprano") {
             return .soprano
@@ -467,6 +480,9 @@ public struct ModelVoiceSupport: Hashable, Codable, Sendable {
             return ModelVoiceSupport(features: [.referenceAudio])
 
         case .vibevoiceRealtimeTTS:
+            return ModelVoiceSupport(features: [.presetVoices])
+
+        case .appleSpeechSynthesis:
             return ModelVoiceSupport(features: [.presetVoices])
 
         default:

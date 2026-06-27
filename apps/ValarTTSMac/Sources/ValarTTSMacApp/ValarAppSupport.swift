@@ -612,7 +612,7 @@ struct ValarDashboardSnapshot: Equatable {
     )
 
     var modelCount: Int { catalogModels.count }
-    var installedModelCount: Int { installedCatalogModels.count }
+    var installedModelCount: Int { primaryInstalledCatalogModels.count }
     var cachedModelCount: Int { cachedCatalogModels.count }
     var recommendedModelCount: Int { recommendedModels.count }
     var projectCount: Int { projects.count }
@@ -621,6 +621,10 @@ struct ValarDashboardSnapshot: Equatable {
 
     var installedCatalogModels: [CatalogModel] {
         catalogModels.filter { $0.installState == .installed }
+    }
+
+    var primaryInstalledCatalogModels: [CatalogModel] {
+        installedCatalogModels.filter { !isSystemBackupCatalogModel($0) }
     }
 
     var cachedCatalogModels: [CatalogModel] {
@@ -632,23 +636,29 @@ struct ValarDashboardSnapshot: Equatable {
     }
 
     var availableGenerationModels: [CatalogModel] {
-        let installed = installedCatalogModels.filter {
+        let installed = primaryInstalledCatalogModels.filter {
             $0.descriptor.capabilities.contains(.speechSynthesis)
         }
         if !installed.isEmpty {
             return installed
         }
-        return catalogModels.filter { $0.descriptor.capabilities.contains(.speechSynthesis) }
+        return catalogModels.filter {
+            $0.descriptor.capabilities.contains(.speechSynthesis)
+                && !isSystemBackupCatalogModel($0)
+        }
     }
 
     var availableRecognitionModels: [CatalogModel] {
-        let installed = installedCatalogModels.filter {
+        let installed = primaryInstalledCatalogModels.filter {
             $0.descriptor.capabilities.contains(.speechRecognition)
         }
         if !installed.isEmpty {
             return installed
         }
-        return catalogModels.filter { $0.descriptor.capabilities.contains(.speechRecognition) }
+        return catalogModels.filter {
+            $0.descriptor.capabilities.contains(.speechRecognition)
+                && !isSystemBackupCatalogModel($0)
+        }
     }
 
     var ttsModels: [ModelResidencySnapshot] {
@@ -663,6 +673,10 @@ struct ValarDashboardSnapshot: Equatable {
         guard let identifier else { return nil }
         return catalogModels.first(where: { $0.id == identifier })
     }
+}
+
+private func isSystemBackupCatalogModel(_ model: CatalogModel) -> Bool {
+    model.installedPath == nil && model.supportedBackends.contains(.apple)
 }
 
 struct RuntimeModelPickerOption: Identifiable, Equatable {
@@ -800,16 +814,37 @@ extension ValarRuntime {
         try ValarRuntime.live(
             paths: appPaths,
             runtimeConfiguration: appDefaultConfiguration,
-            makeInferenceBackend: { MLXInferenceBackend() }
+            makeInferenceBackend: {
+                CompositeInferenceBackend(
+                    primary: MLXInferenceBackend(),
+                    additional: [AppleSpeechBackend()]
+                )
+            }
         )
     }
 
     func generationModelOptions() async -> [RuntimeModelPickerOption] {
         _ = await ensureStartupMaintenance()
         let catalogModels = (try? await modelCatalog.supportedModels()) ?? []
-        let catalogOptions = catalogModels
+        let installedSpeechModels = catalogModels
             .filter { $0.installState == .installed }
             .filter { $0.descriptor.capabilities.contains(.speechSynthesis) }
+        let primaryCatalogOptions = installedSpeechModels
+            .filter { !isSystemBackupCatalogModel($0) }
+            .map { model in
+                let voiceSupport = model.descriptor.voiceSupport
+                return RuntimeModelPickerOption(
+                    id: model.id,
+                    displayName: model.descriptor.displayName,
+                    familyID: model.familyID,
+                    voiceFeatures: voiceSupport.features,
+                    isRecommended: model.isRecommended,
+                    supportTier: model.supportTier,
+                    distributionTier: model.distributionTier
+                )
+            }
+        let backupCatalogOptions = installedSpeechModels
+            .filter { isSystemBackupCatalogModel($0) }
             .map { model in
                 let voiceSupport = model.descriptor.voiceSupport
                 return RuntimeModelPickerOption(
@@ -823,7 +858,7 @@ extension ValarRuntime {
                 )
             }
 
-        var optionsByID = Dictionary(uniqueKeysWithValues: catalogOptions.map { ($0.id, $0) })
+        var optionsByID = Dictionary(uniqueKeysWithValues: primaryCatalogOptions.map { ($0.id, $0) })
         let runtimeSnapshots = await modelRegistry.snapshots()
         for snapshot in runtimeSnapshots where snapshot.descriptor.capabilities.contains(.speechSynthesis) {
             guard optionsByID[snapshot.descriptor.id] == nil else {
@@ -839,6 +874,9 @@ extension ValarRuntime {
                 voiceFeatures: voiceSupport.features,
                 isRecommended: false
             )
+        }
+        if optionsByID.isEmpty {
+            optionsByID = Dictionary(uniqueKeysWithValues: backupCatalogOptions.map { ($0.id, $0) })
         }
 
         return optionsByID.values.sorted { lhs, rhs in
@@ -1654,13 +1692,10 @@ final class ValarServiceHub {
     ) async throws -> AudioPCMBuffer {
         let preparedVoiceRecord = try await voiceReadyForSynthesis(voiceRecord)
         let resolvedDescriptor = try await descriptor(for: modelID)
-        let backendRuntime = BackendSelectionPolicy.Runtime(
-            availableBackends: [inferenceBackend.backendKind]
-        )
         let configuration = try BackendSelectionPolicy().runtimeConfiguration(
             for: resolvedDescriptor,
             residencyPolicy: .automatic,
-            runtime: backendRuntime
+            runtime: runtime.backendSelectionRuntime()
         )
 
         let promptPayload: (pcmData: Data, sampleRate: Double, transcript: String)? = if let preparedVoiceRecord {
@@ -1765,9 +1800,6 @@ final class ValarServiceHub {
     ) throws -> ModelRuntimeConfiguration {
         let estimatedBytes = manifest.artifacts.compactMap(\.sizeBytes).reduce(0, +)
         let descriptor = ModelDescriptor(manifest: manifest)
-        let runtime = BackendSelectionPolicy.Runtime(
-            availableBackends: [inferenceBackend.backendKind]
-        )
         return try BackendSelectionPolicy().runtimeConfiguration(
             for: descriptor,
             residencyPolicy: residencyPolicy,
@@ -1775,7 +1807,7 @@ final class ValarServiceHub {
             memoryBudgetBytes: estimatedBytes > 0 ? estimatedBytes : nil,
             allowQuantizedWeights: true,
             allowWarmStart: true,
-            runtime: runtime
+            runtime: self.runtime.backendSelectionRuntime()
         )
     }
 
@@ -1972,6 +2004,10 @@ final class ValarServiceHub {
             return .qwen3ASR
         case ModelFamilyID.qwen3ForcedAligner.rawValue:
             return .qwen3ForcedAligner
+        case ModelFamilyID.appleSpeechSynthesis.rawValue:
+            return .appleSpeechSynthesis
+        case ModelFamilyID.appleSpeechRecognition.rawValue:
+            return .appleSpeechRecognition
         case ModelFamilyID.voxtralTTS.rawValue:
             return .voxtralTTS
         case ModelFamilyID.tadaTTS.rawValue:
@@ -1987,9 +2023,9 @@ final class ValarServiceHub {
 
     private static func inferredDomain(for familyID: ModelFamilyID) -> ModelDomain {
         switch familyID {
-        case .qwen3TTS, .voxtralTTS, .tadaTTS, .soprano:
+        case .qwen3TTS, .voxtralTTS, .tadaTTS, .soprano, .appleSpeechSynthesis:
             return .tts
-        case .qwen3ASR, .whisper:
+        case .qwen3ASR, .whisper, .appleSpeechRecognition:
             return .stt
         case .qwen3ForcedAligner:
             return .stt
@@ -2038,6 +2074,10 @@ final class ValarServiceHub {
             return [.speechRecognition, .tokenization, .translation]
         case .qwen3ForcedAligner:
             return [.speechRecognition, .forcedAlignment, .tokenization]
+        case .appleSpeechSynthesis:
+            return [.speechSynthesis, .presetVoices]
+        case .appleSpeechRecognition:
+            return [.speechRecognition]
         case .whisper:
             return [.speechRecognition, .tokenization]
         case .unknown:

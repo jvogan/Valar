@@ -80,13 +80,12 @@ public extension ValarRuntime {
         for descriptor: ModelDescriptor
     ) throws -> ModelRuntimeConfiguration {
         let policy = BackendSelectionPolicy()
-        let runtime = Self.projectSynthesisSelectionRuntime(for: inferenceBackend.backendKind)
 
         do {
             return try policy.runtimeConfiguration(
                 for: descriptor,
                 residencyPolicy: .automatic,
-                runtime: runtime
+                runtime: backendSelectionRuntime()
             )
         } catch let error as BackendSelectionPolicy.SelectionError {
             switch error {
@@ -96,16 +95,4 @@ public extension ValarRuntime {
         }
     }
 
-    private static func projectSynthesisSelectionRuntime(
-        for backendKind: BackendKind
-    ) -> BackendSelectionPolicy.Runtime {
-        let processInfo = ProcessInfo.processInfo
-        let version = processInfo.operatingSystemVersion
-        return BackendSelectionPolicy.Runtime(
-            availableBackends: [backendKind],
-            availableMemoryBytes: Int(clamping: processInfo.physicalMemory),
-            supportsLocalExecution: true,
-            runtimeVersion: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"
-        )
-    }
 }

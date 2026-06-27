@@ -291,7 +291,9 @@ struct TranscribeCommand: AsyncParsableCommand {
         // Prefer any already-installed ASR model over the hardcoded default.
         let supportedModels = (try? await runtime.modelCatalog.supportedModels()) ?? []
         if let installed = supportedModels.first(where: {
-            $0.installState == .installed && $0.descriptor.capabilities.contains(.speechRecognition)
+            $0.installState == .installed
+                && $0.descriptor.capabilities.contains(.speechRecognition)
+                && $0.descriptor.familyID != .appleSpeechRecognition
         }) {
             return installed.id.rawValue
         }

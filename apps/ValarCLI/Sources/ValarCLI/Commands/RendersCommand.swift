@@ -762,9 +762,7 @@ struct CLITextToSpeechRenderer {
         let descriptor = try await resolveDescriptor(for: modelID)
         let configuration = try BackendSelectionPolicy().runtimeConfiguration(
             for: descriptor,
-            runtime: BackendSelectionPolicy.Runtime(
-                availableBackends: [runtime.inferenceBackend.backendKind]
-            )
+            runtime: runtime.backendSelectionRuntime()
         )
         do {
             return try await runtime.withReservedTextToSpeechWorkflowSession(

@@ -178,10 +178,14 @@ public final class ValarRuntime: Sendable {
                 idleTimeoutSeconds: 600
             )
         )
+        let inferenceBackend = CompositeInferenceBackend(
+            primary: mlxBackend,
+            additional: [AppleSpeechBackend()]
+        )
         try self.init(
             paths: paths,
             runtimeConfiguration: runtimeConfiguration,
-            inferenceBackend: mlxBackend,
+            inferenceBackend: inferenceBackend,
             fileManager: fileManager
         )
     }
@@ -208,8 +212,8 @@ public final class ValarRuntime: Sendable {
         let modelRegistry = ModelRegistry(
             configuration: runtimeConfiguration,
             evictionHandler: { event in
-                guard let mlxBackend = inferenceBackend as? MLXInferenceBackend else { return }
-                await mlxBackend.unloadModel(withID: event.descriptor.id)
+                guard let unloadingBackend = inferenceBackend as? any ModelIDUnloadingInferenceBackend else { return }
+                await unloadingBackend.unloadModel(withID: event.descriptor.id)
             }
         )
         let capabilityRegistry = CapabilityRegistry()
@@ -478,7 +482,8 @@ public final class ValarRuntime: Sendable {
         guard model.installState == .installed else {
             throw TranscriptionError.modelNotInstalled(identifier)
         }
-        guard model.descriptor.familyID == .qwen3ASR else {
+        guard model.descriptor.capabilities.contains(.speechRecognition),
+              model.descriptor.capabilities.contains(.forcedAlignment) == false else {
             throw TranscriptionError.unsupportedModelFamily(
                 identifier: identifier,
                 family: model.descriptor.familyID
@@ -508,7 +513,7 @@ public final class ValarRuntime: Sendable {
         preferredSampleRate: Double?
     ) throws -> (requirement: BackendRequirement, configuration: ModelRuntimeConfiguration) {
         let policy = BackendSelectionPolicy()
-        let runtime = Self.selectionRuntime(for: inferenceBackend.backendKind)
+        let runtime = backendSelectionRuntime()
 
         do {
             let requirement = policy.compatibleRequirement(
@@ -537,7 +542,7 @@ public final class ValarRuntime: Sendable {
         preferredSampleRate: Double?
     ) throws -> (requirement: BackendRequirement, configuration: ModelRuntimeConfiguration) {
         let policy = BackendSelectionPolicy()
-        let runtime = Self.selectionRuntime(for: inferenceBackend.backendKind)
+        let runtime = backendSelectionRuntime()
 
         do {
             let requirement = policy.compatibleRequirement(
@@ -561,11 +566,13 @@ public final class ValarRuntime: Sendable {
         }
     }
 
-    private static func selectionRuntime(for backendKind: BackendKind) -> BackendSelectionPolicy.Runtime {
+    public func backendSelectionRuntime() -> BackendSelectionPolicy.Runtime {
         let processInfo = ProcessInfo.processInfo
         let version = processInfo.operatingSystemVersion
+        let availableBackendKinds = (inferenceBackend as? any RuntimeBackendInventory)?.availableBackendKinds
+            ?? [inferenceBackend.backendKind]
         return BackendSelectionPolicy.Runtime(
-            availableBackends: [backendKind],
+            availableBackends: availableBackendKinds,
             availableMemoryBytes: Int(clamping: processInfo.physicalMemory),
             supportsLocalExecution: true,
             runtimeVersion: "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion)"

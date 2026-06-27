@@ -150,12 +150,9 @@ do {
     }) {
         let descriptor = catalogModel.descriptor
         let policy = BackendSelectionPolicy()
-        let backendRuntime = BackendSelectionPolicy.Runtime(
-            availableBackends: [runtime.inferenceBackend.backendKind]
-        )
         let configuration = try policy.runtimeConfiguration(
             for: descriptor,
-            runtime: backendRuntime
+            runtime: runtime.backendSelectionRuntime()
         )
         let warmupRequest = SpeechSynthesisRequest(
             model: descriptor.id,

@@ -631,6 +631,7 @@ final class ProjectWorkspaceState {
 
         availableRenderModels = installedModels
             .filter { $0.descriptor.capabilities.contains(.speechSynthesis) }
+            .filter { !Self.isSystemBackupModel($0) }
             .map { RenderModelOption(id: $0.id, displayName: $0.descriptor.displayName) }
 
         if let preferredModelID,
@@ -645,6 +646,10 @@ final class ProjectWorkspaceState {
         }
 
         selectedRenderModelID = availableRenderModels.first?.id
+    }
+
+    private static func isSystemBackupModel(_ model: CatalogModel) -> Bool {
+        model.installedPath == nil && model.supportedBackends.contains(.apple)
     }
 
     private func applyRenderSynthesisOptions(_ options: RenderSynthesisOptions) {

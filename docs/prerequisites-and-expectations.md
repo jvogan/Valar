@@ -60,6 +60,8 @@ The public v1 working set is intentionally narrow.
 
 Footprint values are rough planning numbers and can drift as upstream packs change.
 
+Valar also lists `apple/system-tts` and `apple/system-asr` as built-in macOS backup surfaces. They require no model download, but they are not the main public model lane. Apple System ASR requires a host that can request macOS Speech permission, so install `Qwen ASR` for normal CLI and daemon transcription.
+
 ## What To Install First
 
 - Install `Soprano` first if you want the smallest proof that your machine is working.

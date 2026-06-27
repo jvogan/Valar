@@ -57,7 +57,7 @@ Model state terms:
 
 - `supported`: the model is in Valar's public catalog, but no local artifacts are registered yet.
 - `cached`: a reusable upstream cache appears to be present, but Valar still needs `models install <id>` to register a model pack.
-- `installed`: Valar has a registered local model pack and can attempt to load it.
+- `installed`: Valar has a registered local model pack, or the entry is a built-in system backup such as `apple/system-tts` or `apple/system-asr`.
 - `resident`: the daemon has the model loaded or warming in the current runtime.
 
 Useful cleanup commands:
@@ -114,6 +114,19 @@ swift run --package-path apps/ValarCLI valartts speak \
   --text "Hello from Soprano." \
   --output "${TMPDIR:-/tmp}/soprano.wav"
 ```
+
+## Built-In Apple Backups
+
+Valar exposes two no-download system backup IDs:
+
+```bash
+swift run --package-path apps/ValarCLI valartts speak \
+  --model apple/system-tts \
+  --text "Hello from the macOS system voice." \
+  --output "${TMPDIR:-/tmp}/apple-system.wav"
+```
+
+`apple/system-tts` uses macOS `AVSpeechSynthesizer` voices. `apple/system-asr` uses on-device macOS Speech recognition and is intended for app-hosted workflows that can request Speech permission. For CLI and daemon transcription, install `mlx-community/Qwen3-ASR-0.6B-8bit`.
 
 ## Qwen: Main Lane
 

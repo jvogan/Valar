@@ -64,6 +64,9 @@ struct DoctorCommand: AsyncParsableCommand {
         )
         let installedFamilyIDs = validInstallReceipts.map(\.familyID)
         let installed = catalog.filter { $0.installState == .installed }
+        let systemBackupModels = installed.filter {
+            $0.installedPath == nil && $0.supportedBackends.contains(.apple)
+        }
         let cached = catalog.filter { $0.installState == .cached }
         let staleInstalledModels = (try? await runtime.modelCatalog.staleInstalledModels()) ?? []
         let staleInstalledModelIDs = staleInstalledModels.map(\.id.rawValue)
@@ -74,6 +77,14 @@ struct DoctorCommand: AsyncParsableCommand {
                 displayName: entry?.manifest.displayName ?? receipt.modelID,
                 family: entry?.manifest.familyID.rawValue ?? receipt.familyID,
                 domain: entry?.manifest.domain.rawValue ?? "unknown"
+            )
+        }.sorted { $0.displayName < $1.displayName }
+        let systemBackupDetails: [DoctorInstalledModelDTO] = systemBackupModels.map { model in
+            DoctorInstalledModelDTO(
+                id: model.id.rawValue,
+                displayName: model.descriptor.displayName,
+                family: model.descriptor.familyID.rawValue,
+                domain: model.descriptor.domain.rawValue
             )
         }.sorted { $0.displayName < $1.displayName }
         let cachedDetails: [DoctorInstalledModelDTO] = cached.map { model in
@@ -125,20 +136,34 @@ struct DoctorCommand: AsyncParsableCommand {
             )
         }
 
-        let hasTTSInstalled = validInstallReceipts.contains { receipt in
+        let hasPrimaryTTSInstalled = validInstallReceipts.contains { receipt in
             supportedEntriesByModelID[receipt.modelID]?.manifest.capabilities.contains(.speechSynthesis) == true
         }
-        if !hasTTSInstalled {
-            issues.append("No TTS model installed. Run: valartts models install mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16")
+        let hasSystemTTSBackup = systemBackupModels.contains {
+            $0.descriptor.capabilities.contains(.speechSynthesis)
+        }
+        if !hasPrimaryTTSInstalled {
+            if hasSystemTTSBackup {
+                advisories.append("No primary TTS model pack installed. Apple System TTS is available as a local backup; install Qwen for the main long-form lane or Soprano for the fastest public quickstart.")
+            } else {
+                issues.append("No TTS model installed. Run: valartts models install mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16")
+            }
         }
 
-        let hasASRInstalled = validInstallReceipts.contains { receipt in
+        let hasPrimaryASRInstalled = validInstallReceipts.contains { receipt in
             supportedEntriesByModelID[receipt.modelID]?.manifest.capabilities.contains(.speechRecognition) == true
         }
-        if !hasASRInstalled {
-            issues.append("No ASR model installed. Run: valartts models install mlx-community/Qwen3-ASR-0.6B-8bit")
+        let hasSystemASRBackup = systemBackupModels.contains {
+            $0.descriptor.capabilities.contains(.speechRecognition)
+        } && AppleSpeechPrivacy.hostHasSpeechRecognitionUsageDescription()
+        if !hasPrimaryASRInstalled {
+            if hasSystemASRBackup {
+                advisories.append("No primary ASR model pack installed. Apple System ASR is available as an explicit local backup in this host; install Qwen ASR for the public MLX ASR lane.")
+            } else {
+                issues.append("No ASR model installed. Run: valartts models install mlx-community/Qwen3-ASR-0.6B-8bit")
+            }
         }
-        if (hasTTSInstalled || hasASRInstalled), !localInferenceAssets.metallibAvailable {
+        if (hasPrimaryTTSInstalled || hasPrimaryASRInstalled), !localInferenceAssets.metallibAvailable {
             issues.append(localInferenceAssets.failureReason)
         }
 
@@ -276,6 +301,7 @@ struct DoctorCommand: AsyncParsableCommand {
                 installedModels: validInstallReceipts.count,
                 installedModelIDs: validInstallReceipts.map(\.modelID).sorted(),
                 installedModelDetails: installedDetails,
+                systemBackupModelDetails: systemBackupDetails,
                 cachedModelIDs: cached.map { $0.id.rawValue },
                 cachedModelDetails: cachedDetails,
                 daemonReachable: daemonReachable,
@@ -390,11 +416,17 @@ struct DoctorCommand: AsyncParsableCommand {
             print()
 
             // Models
-            print("Models (\(installedDetails.count) installed, \(catalog.count) visible in catalog)")
-            if installed.isEmpty {
-                print("  (none installed)")
+            print("Models (\(installedDetails.count) model pack(s), \(systemBackupDetails.count) system backup(s), \(catalog.count) visible in catalog)")
+            if installedDetails.isEmpty {
+                print("  (no model packs installed)")
             } else {
                 for m in installedDetails {
+                    print("  - \(m.displayName)  [\(m.family) / \(m.domain)]")
+                }
+            }
+            if !systemBackupDetails.isEmpty {
+                print("  System backups:")
+                for m in systemBackupDetails {
                     print("  - \(m.displayName)  [\(m.family) / \(m.domain)]")
                 }
             }
@@ -1120,6 +1152,7 @@ struct DoctorReportDTO: Codable, Sendable {
     let installedModels: Int
     let installedModelIDs: [String]
     let installedModelDetails: [DoctorInstalledModelDTO]
+    let systemBackupModelDetails: [DoctorInstalledModelDTO]
     let cachedModelIDs: [String]
     let cachedModelDetails: [DoctorInstalledModelDTO]
     let daemonReachable: Bool

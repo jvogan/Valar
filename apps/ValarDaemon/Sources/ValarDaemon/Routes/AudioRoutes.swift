@@ -192,9 +192,7 @@ extension ValarDaemonRouter {
         do {
             configuration = try BackendSelectionPolicy().runtimeConfiguration(
                 for: descriptor,
-                runtime: BackendSelectionPolicy.Runtime(
-                    availableBackends: [runtime.inferenceBackend.backendKind]
-                )
+                runtime: runtime.backendSelectionRuntime()
             )
         } catch {
             return errorResponse(
@@ -667,7 +665,9 @@ extension ValarDaemonRouter {
             throw DaemonRequestError.missingModel(requestedModel)
         }
 
-        if let defaultDescriptor = installedCatalogModels.first(where: { validate($0.descriptor) }) {
+        if let defaultDescriptor = installedCatalogModels.first(where: {
+            validate($0.descriptor) && isImplicitDefaultModel($0, capability: capability)
+        }) {
             return defaultDescriptor.descriptor
         }
 
@@ -873,6 +873,16 @@ extension ValarDaemonRouter {
             )
         }
 
+        if descriptor.familyID == .appleSpeechSynthesis {
+            return VoiceProfile(
+                label: rawIdentifier,
+                backendVoiceID: rawIdentifier,
+                sourceModel: descriptor.id,
+                localeIdentifier: language,
+                voiceKind: .preset
+            )
+        }
+
         guard descriptor.familyID == .voxtralTTS else {
             throw DaemonRequestError.invalidVoice(rawIdentifier)
         }
@@ -1019,9 +1029,18 @@ extension ValarDaemonRouter {
     private static func installedASRModelIdentifier(runtime: ValarRuntime) async throws -> ModelIdentifier? {
         let models = try await runtime.modelCatalog.models(supporting: .speechRecognition)
         let installed = models.filter {
-            $0.installState == .installed && $0.descriptor.capabilities.contains(.forcedAlignment) == false
+            $0.installState == .installed
+                && $0.descriptor.capabilities.contains(.forcedAlignment) == false
+                && isImplicitDefaultModel($0, capability: .speechRecognition)
         }
         return (installed.first(where: \.isRecommended) ?? installed.first)?.id
+    }
+
+    private static func isImplicitDefaultModel(_ model: CatalogModel, capability: ModelCapability) -> Bool {
+        if capability == .speechRecognition, model.descriptor.familyID == .appleSpeechRecognition {
+            return AppleSpeechPrivacy.hostHasSpeechRecognitionUsageDescription()
+        }
+        return true
     }
 
     private static func parseRequestTimeReferenceAudio(
@@ -1363,9 +1382,7 @@ extension ValarDaemonRouter {
         do {
             configuration = try BackendSelectionPolicy().runtimeConfiguration(
                 for: descriptor,
-                runtime: BackendSelectionPolicy.Runtime(
-                    availableBackends: [runtime.inferenceBackend.backendKind]
-                )
+                runtime: runtime.backendSelectionRuntime()
             )
         } catch {
             return errorResponse(
@@ -1665,9 +1682,7 @@ extension ValarDaemonRouter {
                     let scheduledChunks = asrChunks
                     let configuration = try BackendSelectionPolicy().runtimeConfiguration(
                         for: descriptor,
-                        runtime: BackendSelectionPolicy.Runtime(
-                            availableBackends: [runtime.inferenceBackend.backendKind]
-                        )
+                        runtime: runtime.backendSelectionRuntime()
                     )
                     do {
                         let stream = try await runtime.withReservedSpeechToTextWorkflowSessionStream(

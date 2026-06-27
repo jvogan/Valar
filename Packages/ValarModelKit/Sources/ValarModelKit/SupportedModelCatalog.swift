@@ -26,7 +26,7 @@ public enum SupportedModelCatalog {
         let soprano = SopranoCatalog.supportedEntries.filter { publicSopranoIDs.contains($0.id) }
         let vibeVoice = VibeVoiceCatalog.supportedEntries.filter { publicVibeVoiceIDs.contains($0.id) }
         let voxtral = VoxtralCatalog.supportedEntries.filter { publicVoxtralIDs.contains($0.id) }
-        return qwen + soprano + vibeVoice + voxtral
+        return qwen + soprano + vibeVoice + voxtral + AppleSpeechCatalog.supportedEntries
     }
 
     public static var supportedEntries: [SupportedModelCatalogEntry] {

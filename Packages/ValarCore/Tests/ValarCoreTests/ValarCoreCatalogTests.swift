@@ -32,6 +32,24 @@ final class ValarCoreCatalogTests: XCTestCase {
         XCTAssertTrue(models.contains(where: { $0.id == "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16" }))
     }
 
+    func testModelCatalogMarksAppleSystemModelsInstalledWithoutModelPack() async throws {
+        let catalog = ModelCatalog(
+            supportedSource: SupportedCatalogSource.curated(),
+            visibilityPolicyProvider: { CatalogVisibilityPolicy(allowsNonCommercialModels: false) }
+        )
+
+        let models = try await catalog.refresh()
+        let appleTTS = try XCTUnwrap(models.first(where: { $0.id == AppleSpeechCatalog.ttsModelIdentifier }))
+        let appleASR = try XCTUnwrap(models.first(where: { $0.id == AppleSpeechCatalog.asrModelIdentifier }))
+
+        XCTAssertEqual(appleTTS.installState, .installed)
+        XCTAssertEqual(appleTTS.supportedBackends, [.apple])
+        XCTAssertNil(appleTTS.installedPath)
+        XCTAssertEqual(appleASR.installState, .installed)
+        XCTAssertEqual(appleASR.supportedBackends, [.apple])
+        XCTAssertNil(appleASR.installedPath)
+    }
+
     func testModelCatalogRefreshIncludesVoxtralWhenNonCommercialModelsEnabled() async throws {
         let catalog = ModelCatalog(
             supportedSource: SupportedCatalogSource.curated(),
