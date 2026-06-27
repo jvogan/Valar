@@ -14,7 +14,7 @@ repos:
 
 # ── Swift ─────────────────────────────────────────────────────────────────────
 -   repo: https://github.com/realm/SwiftLint
-    rev: 0.57.1
+    rev: 0.64.1
     hooks:
     -   id: swiftlint
         args:
