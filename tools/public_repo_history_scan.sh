@@ -90,11 +90,23 @@ history_content_hit_is_allowed() {
 }
 
 declare -a GREP_ARGS=()
-for regex in "${CONTENT_BLOCK_REGEXES[@]}"; do
+declare -a GREP_REGEXES=()
+append_grep_regex_once() {
+  local regex="$1"
+  local existing
+  for existing in "${GREP_REGEXES[@]-}"; do
+    if [[ "$existing" == "$regex" ]]; then
+      return
+    fi
+  done
+  GREP_REGEXES+=("$regex")
   GREP_ARGS+=(-e "$regex")
+}
+for regex in "${CONTENT_BLOCK_REGEXES[@]}"; do
+  append_grep_regex_once "$regex"
 done
 for regex in "${HISTORY_BLOCK_REGEXES[@]}"; do
-  GREP_ARGS+=(-e "$regex")
+  append_grep_regex_once "$regex"
 done
 
 while IFS= read -r rev; do

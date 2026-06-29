@@ -4,63 +4,76 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "bun"
     directory: "/bridge"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "pip"
     directory: "/scripts/voxtral"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "pre-commit"
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/apps/ValarCLI"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/apps/ValarDaemon"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/Packages/ValarMLX"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/Packages/ValarCore"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/Packages/ValarModelKit"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/Packages/ValarAudio"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/Packages/ValarPersistence"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/Packages/mlx-audio-swift-valar"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0
 
   - package-ecosystem: "swift"
     directory: "/apps/ValarTTSMac"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 0

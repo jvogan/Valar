@@ -73,11 +73,17 @@ install_metallib() {
 
   copy_into_dir() {
     local dir="$1"
+    local default_dest="$dir/default.metallib"
+    local mlx_dest="$dir/mlx.metallib"
     [[ -d "$dir" ]] || return 0
-    cp "$metallib_path" "$dir/mlx.metallib"
-    cp "$metallib_path" "$dir/default.metallib"
-    echo "Installed: $dir/mlx.metallib"
-    echo "Installed: $dir/default.metallib"
+    if [[ ! -e "$mlx_dest" || ! "$metallib_path" -ef "$mlx_dest" ]]; then
+      cp "$metallib_path" "$mlx_dest"
+    fi
+    if [[ ! -e "$default_dest" || ! "$metallib_path" -ef "$default_dest" ]]; then
+      cp "$metallib_path" "$default_dest"
+    fi
+    echo "Installed: $mlx_dest"
+    echo "Installed: $default_dest"
     installed=1
   }
 
@@ -250,7 +256,7 @@ while IFS= read -r -d '' f; do
     continue
   fi
   # Use relative path to create unique .air name
-  relpath="${f#$MLX_CHECKOUT/}"
+  relpath="${f#"$MLX_CHECKOUT"/}"
   airname=$(echo "$relpath" | tr '/' '_' | sed 's/\.metal$/.air/')
   airpath="$BUILD_DIR/$airname"
   if "$METAL_BIN" -c "$f" -o "$BUILD_DIR/$airname" \

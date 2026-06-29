@@ -89,6 +89,7 @@ logs/
 *.pid
 artifacts/voxtral-benchmarks/
 artifacts/repo-health/
+assets/media/social-preview-text.jpg
 .env
 .env.*
 

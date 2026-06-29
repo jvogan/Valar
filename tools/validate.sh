@@ -228,7 +228,10 @@ rg -q "make first-clip" README.md docs/model-quickstart.md AGENTS.md
   echo "Error: experimental example subtree examples/bible-audiobook should not be in the public repo." >&2
   exit 1
 }
-! rg -n "ValarTTS" README.md docs/README.md docs/working-models.md docs/model-quickstart.md docs/prerequisites-and-expectations.md docs/app-from-xcode.md docs/release-maintainers.md docs/integrations.md examples/README.md examples/headless-synthesis.swift >/dev/null
+if rg -n "ValarTTS" README.md docs/README.md docs/working-models.md docs/model-quickstart.md docs/prerequisites-and-expectations.md docs/app-from-xcode.md docs/release-maintainers.md docs/integrations.md examples/README.md examples/headless-synthesis.swift >/dev/null; then
+  echo "Error: public docs should use Valar, not the old ValarTTS product name." >&2
+  exit 1
+fi
 
 if [[ "$run_live" == "1" ]]; then
   run_speak_smoke \

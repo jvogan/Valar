@@ -85,7 +85,7 @@ path_is_excluded() {
   local rel="$1"
   local pattern
   for pattern in "${EXCLUDES[@]-}"; do
-    if [[ "$rel" == $pattern ]]; then
+    if [[ "$rel" == "$pattern" ]]; then
       return 0
     fi
   done
