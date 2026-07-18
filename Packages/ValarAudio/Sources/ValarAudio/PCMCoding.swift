@@ -33,24 +33,34 @@ enum PCMCoding {
     ///
     /// The number of channels written is clamped to `avBuffer.format.channelCount`.
     /// Channels present in `avBuffer` but absent from `channels` are zero-filled entirely.
-    static func fill(_ avBuffer: AVAudioPCMBuffer, from channels: [[Float]], frameCount: Int) {
+    static func fill(
+        _ avBuffer: AVAudioPCMBuffer,
+        from channels: [[Float]],
+        startFrame: Int = 0,
+        frameCount: Int
+    ) {
         precondition(
             frameCount == Int(avBuffer.frameLength),
             "PCMCoding.fill frameCount must match avBuffer.frameLength"
         )
+        precondition(startFrame >= 0, "PCMCoding.fill startFrame must be nonnegative")
 
         let channelCount = Int(avBuffer.format.channelCount)
         for channelIndex in 0..<channelCount {
             guard let destination = avBuffer.floatChannelData?[channelIndex] else { continue }
             let source = channelIndex < channels.count ? channels[channelIndex] : []
+            let availableCount = min(frameCount, max(0, source.count - startFrame))
             source.withUnsafeBufferPointer { ptr in
-                if let baseAddress = ptr.baseAddress {
-                    destination.update(from: baseAddress, count: source.count)
+                if let baseAddress = ptr.baseAddress, availableCount > 0 {
+                    destination.update(
+                        from: baseAddress.advanced(by: startFrame),
+                        count: availableCount
+                    )
                 }
             }
-            if source.count < frameCount {
-                destination.advanced(by: source.count)
-                    .initialize(repeating: 0, count: frameCount - source.count)
+            if availableCount < frameCount {
+                destination.advanced(by: availableCount)
+                    .initialize(repeating: 0, count: frameCount - availableCount)
             }
         }
     }
