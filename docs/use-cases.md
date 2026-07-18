@@ -54,4 +54,7 @@ Best starting model:
 - `Qwen Base` for the main supported narration path
 - `VibeVoice` only if you specifically want preset voices and accept preview posture
 
+For manuscript import, script linting, queued chapter renders, and export-pack manifests,
+see the [Long-Form Project Cookbook](./long-form-project-cookbook.md).
+
 ![Valar app preview](../assets/media/app-preview.png)

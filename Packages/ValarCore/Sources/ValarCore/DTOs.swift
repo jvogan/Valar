@@ -679,7 +679,7 @@ public struct ModelRouteDescriptorDTO: Codable, Sendable, Equatable, Identifiabl
     public let family: String
     public let provider: String
     public let installState: String
-    /// True when the model is registered in the ValarTTS model pack store.
+    /// True when the model is registered in the Valar model pack store.
     public let installed: Bool
     /// True when model files exist on disk (either installed in model packs or
     /// present in the mlx-audio HuggingFace cache). Ready to use without downloading.
@@ -1876,6 +1876,265 @@ public struct ModelSharedCachePurgeDTO: Codable, Sendable, Equatable {
         self.model = model
         self.removedPaths = removedPaths
         self.removedCount = removedPaths.count
+    }
+}
+
+public struct VoiceConsistencyPolicyDTO: Codable, Sendable, Equatable {
+    public let anchorEveryChapters: Int
+    public let requireReferenceTranscript: Bool
+    public let recommendedRuntime: String
+
+    public init(
+        anchorEveryChapters: Int = 3,
+        requireReferenceTranscript: Bool = true,
+        recommendedRuntime: String = "qwen-base-stable-narrator"
+    ) {
+        self.anchorEveryChapters = anchorEveryChapters
+        self.requireReferenceTranscript = requireReferenceTranscript
+        self.recommendedRuntime = recommendedRuntime
+    }
+}
+
+public struct ProjectExportArtifactDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let kind: String
+    public let path: String
+    public let mimeType: String?
+    public let checksum: String?
+    public let byteCount: Int?
+
+    public init(
+        id: String,
+        kind: String,
+        path: String,
+        mimeType: String? = nil,
+        checksum: String? = nil,
+        byteCount: Int? = nil
+    ) {
+        self.id = id
+        self.kind = kind
+        self.path = path
+        self.mimeType = mimeType
+        self.checksum = checksum
+        self.byteCount = byteCount
+    }
+}
+
+public struct ScriptMarkupLineDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let lineNumber: Int
+    public let speakerLabel: String?
+    public let text: String
+    public let attributes: [String: String]
+    public let tags: [String]
+
+    public init(
+        id: String,
+        lineNumber: Int,
+        speakerLabel: String? = nil,
+        text: String,
+        attributes: [String: String] = [:],
+        tags: [String] = []
+    ) {
+        self.id = id
+        self.lineNumber = lineNumber
+        self.speakerLabel = speakerLabel
+        self.text = text
+        self.attributes = attributes
+        self.tags = tags
+    }
+}
+
+public struct ScriptLintIssueDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let severity: String
+    public let code: String
+    public let message: String
+    public let lineNumber: Int?
+    public let chapterID: String?
+    public let speakerLabel: String?
+    public let modelID: String?
+    public let tag: String?
+
+    public init(
+        id: String,
+        severity: String,
+        code: String,
+        message: String,
+        lineNumber: Int? = nil,
+        chapterID: String? = nil,
+        speakerLabel: String? = nil,
+        modelID: String? = nil,
+        tag: String? = nil
+    ) {
+        self.id = id
+        self.severity = severity
+        self.code = code
+        self.message = message
+        self.lineNumber = lineNumber
+        self.chapterID = chapterID
+        self.speakerLabel = speakerLabel
+        self.modelID = modelID
+        self.tag = tag
+    }
+}
+
+public struct ProjectVoiceProfileDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let name: String
+    public let voiceModelID: String?
+    public let language: String
+    public let segmentCount: Int
+    public let warnings: [String]
+
+    public init(
+        id: String,
+        name: String,
+        voiceModelID: String? = nil,
+        language: String = "auto",
+        segmentCount: Int = 0,
+        warnings: [String] = []
+    ) {
+        self.id = id
+        self.name = name
+        self.voiceModelID = voiceModelID
+        self.language = language
+        self.segmentCount = segmentCount
+        self.warnings = warnings
+    }
+}
+
+public struct ProjectVoiceBibleDTO: Codable, Sendable, Equatable {
+    public let projectID: String
+    public let generatedAt: String
+    public let profiles: [ProjectVoiceProfileDTO]
+    public let consistencyPolicy: VoiceConsistencyPolicyDTO?
+
+    public init(
+        projectID: String,
+        generatedAt: String,
+        profiles: [ProjectVoiceProfileDTO],
+        consistencyPolicy: VoiceConsistencyPolicyDTO? = nil
+    ) {
+        self.projectID = projectID
+        self.generatedAt = generatedAt
+        self.profiles = profiles
+        self.consistencyPolicy = consistencyPolicy
+    }
+}
+
+public struct ProjectScriptLintPayloadDTO: Codable, Sendable, Equatable {
+    public let message: String
+    public let projectID: String?
+    public let projectTitle: String?
+    public let modelID: String?
+    public let issueCount: Int
+    public let warningCount: Int
+    public let errorCount: Int
+    public let lines: [ScriptMarkupLineDTO]
+    public let issues: [ScriptLintIssueDTO]
+    public let voiceBible: ProjectVoiceBibleDTO?
+
+    public init(
+        message: String,
+        projectID: String? = nil,
+        projectTitle: String? = nil,
+        modelID: String? = nil,
+        issueCount: Int,
+        warningCount: Int,
+        errorCount: Int,
+        lines: [ScriptMarkupLineDTO],
+        issues: [ScriptLintIssueDTO],
+        voiceBible: ProjectVoiceBibleDTO? = nil
+    ) {
+        self.message = message
+        self.projectID = projectID
+        self.projectTitle = projectTitle
+        self.modelID = modelID
+        self.issueCount = issueCount
+        self.warningCount = warningCount
+        self.errorCount = errorCount
+        self.lines = lines
+        self.issues = issues
+        self.voiceBible = voiceBible
+    }
+}
+
+public struct ProjectExportPackChapterDTO: Codable, Sendable, Equatable, Identifiable {
+    public let id: String
+    public let index: Int
+    public let title: String
+    public let textLength: Int
+    public let speakerLabel: String?
+    public let sourceHash: String
+
+    public init(
+        id: String,
+        index: Int,
+        title: String,
+        textLength: Int,
+        speakerLabel: String? = nil,
+        sourceHash: String
+    ) {
+        self.id = id
+        self.index = index
+        self.title = title
+        self.textLength = textLength
+        self.speakerLabel = speakerLabel
+        self.sourceHash = sourceHash
+    }
+}
+
+public struct ProjectExportPackManifestDTO: Codable, Sendable, Equatable {
+    public let schemaVersion: Int
+    public let generatedAt: String
+    public let projectID: String
+    public let projectTitle: String
+    public let modelID: String?
+    public let chapterCount: Int
+    public let chapters: [ProjectExportPackChapterDTO]
+    public let voiceBible: ProjectVoiceBibleDTO
+    public let artifacts: [ProjectExportArtifactDTO]
+    public let notes: [String]
+
+    public init(
+        schemaVersion: Int = 1,
+        generatedAt: String,
+        projectID: String,
+        projectTitle: String,
+        modelID: String? = nil,
+        chapterCount: Int,
+        chapters: [ProjectExportPackChapterDTO],
+        voiceBible: ProjectVoiceBibleDTO,
+        artifacts: [ProjectExportArtifactDTO],
+        notes: [String] = []
+    ) {
+        self.schemaVersion = schemaVersion
+        self.generatedAt = generatedAt
+        self.projectID = projectID
+        self.projectTitle = projectTitle
+        self.modelID = modelID
+        self.chapterCount = chapterCount
+        self.chapters = chapters
+        self.voiceBible = voiceBible
+        self.artifacts = artifacts
+        self.notes = notes
+    }
+}
+
+public struct ProjectExportPackPayloadDTO: Codable, Sendable, Equatable {
+    public let message: String
+    public let manifestPath: String
+    public let manifest: ProjectExportPackManifestDTO
+
+    public init(
+        message: String,
+        manifestPath: String,
+        manifest: ProjectExportPackManifestDTO
+    ) {
+        self.message = message
+        self.manifestPath = manifestPath
+        self.manifest = manifest
     }
 }
 

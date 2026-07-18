@@ -30,7 +30,11 @@ let package = Package(
         ),
         .testTarget(
             name: "ValarCoreTests",
-            dependencies: ["ValarCore"]
+            dependencies: [
+                "ValarCore",
+                "ValarModelKit",
+                "ValarPersistence",
+            ]
         ),
     ]
 )

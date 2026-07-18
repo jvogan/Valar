@@ -56,7 +56,7 @@ struct GeneratorToolbar: ToolbarContent {
                 state.canGenerate
                     ? "Generate speech from text"
                     : state.requiresInlineReferenceAudio
-                        ? "Add a reference clip to use the selected TADA model."
+                        ? "Add a reference clip to use the selected model."
                         : "Choose a speech model before generating."
             )
 

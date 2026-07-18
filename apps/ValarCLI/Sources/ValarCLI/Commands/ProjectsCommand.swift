@@ -1,13 +1,15 @@
 import ArgumentParser
+import CryptoKit
 import Foundation
 import ValarCore
+import ValarModelKit
 import ValarPersistence
 
 struct ProjectsCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "projects",
         abstract: "Create, open, inspect, save, and close `.valarproject` bundles.",
-        subcommands: [New.self, Import.self, Open.self, Save.self, Info.self, Close.self]
+        subcommands: [New.self, Import.self, Open.self, Save.self, Info.self, Close.self, Lint.self, ExportPack.self]
     )
 
     mutating func run() throws {
@@ -467,6 +469,128 @@ extension ProjectsCommand {
         }
     }
 
+    struct Lint: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "lint",
+            abstract: "Lint project script markup, cast setup, and selected model fit."
+        )
+
+        @Option(name: .long, help: "Optional `.valarproject` bundle path. Defaults to the active project session.")
+        var path: String?
+
+        @Option(name: .long, help: "Optional model identifier to check against expressive tags and cast consistency. Defaults to the bundle model when present.")
+        var model: String?
+
+        mutating func run() throws {
+            let explicitPath = path
+            let explicitModel = model
+            let jsonRequested = OutputContext.jsonRequested
+
+            try ProjectsCommand.runAsync {
+                let context = try ProjectCommandContext()
+                let loaded = try await ProjectsCommand.loadProjectSnapshot(
+                    explicitPath: explicitPath,
+                    context: context
+                )
+                let resolvedModel = try await ProjectsCommand.lookupSpeechModel(
+                    explicitModel ?? loaded.snapshot.modelID,
+                    in: context
+                )
+                let payload = ProjectScriptMarkup.lintProject(
+                    project: loaded.snapshot.project,
+                    chapters: loaded.snapshot.chapters,
+                    speakers: loaded.snapshot.speakers,
+                    model: resolvedModel
+                )
+
+                if jsonRequested {
+                    try OutputFormat.writeSuccess(
+                        command: OutputFormat.commandPath("projects lint"),
+                        data: payload
+                    )
+                    return
+                }
+
+                ProjectsCommand.printScriptLint(payload)
+            }
+        }
+    }
+
+    struct ExportPack: ParsableCommand {
+        static let configuration = CommandConfiguration(
+            commandName: "export-pack",
+            abstract: "Write an agent-friendly project export pack manifest."
+        )
+
+        @Option(name: .long, help: "Optional `.valarproject` bundle path. Defaults to the active project session.")
+        var path: String?
+
+        @Option(name: .long, help: "Output directory for the pack manifest. Defaults to Exports/PublishPack in the bundle.")
+        var outputDir: String?
+
+        mutating func run() throws {
+            let explicitPath = path
+            let explicitOutputDir = outputDir
+            let jsonRequested = OutputContext.jsonRequested
+
+            try ProjectsCommand.runAsync {
+                let context = try ProjectCommandContext()
+                let loaded = try await ProjectsCommand.loadProjectSnapshot(
+                    explicitPath: explicitPath,
+                    context: context
+                )
+                let outputDirectory: URL
+                if let explicitOutputDir = explicitOutputDir?.trimmingCharacters(in: .whitespacesAndNewlines),
+                   !explicitOutputDir.isEmpty {
+                    outputDirectory = ProjectsCommand.resolvedURL(
+                        for: explicitOutputDir,
+                        fileManager: context.fileManager
+                    )
+                } else {
+                    outputDirectory = loaded.bundleURL
+                        .appendingPathComponent("Exports", isDirectory: true)
+                        .appendingPathComponent("PublishPack", isDirectory: true)
+                }
+
+                try context.fileManager.createDirectory(
+                    at: outputDirectory,
+                    withIntermediateDirectories: true
+                )
+
+                let generatedAt = Date.now
+                let manifest = try ProjectsCommand.exportPackManifest(
+                    snapshot: loaded.snapshot,
+                    bundleURL: loaded.bundleURL,
+                    generatedAt: generatedAt,
+                    fileManager: context.fileManager
+                )
+                let manifestURL = outputDirectory.appendingPathComponent("valar-export-pack.json", isDirectory: false)
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                try encoder.encode(manifest).write(to: manifestURL, options: .atomic)
+
+                let payload = ProjectExportPackPayloadDTO(
+                    message: "Wrote project export pack manifest for '\(loaded.snapshot.project.title)'.",
+                    manifestPath: manifestURL.path,
+                    manifest: manifest
+                )
+
+                if jsonRequested {
+                    try OutputFormat.writeSuccess(
+                        command: OutputFormat.commandPath("projects export-pack"),
+                        data: payload
+                    )
+                    return
+                }
+
+                print(payload.message)
+                print("Manifest: \(manifestURL.path)")
+                print("Chapters: \(manifest.chapterCount)")
+                print("Artifacts: \(manifest.artifacts.count)")
+            }
+        }
+    }
+
     struct ActiveProjectSession: Codable, Sendable {
         var version: Int
         var projectID: UUID
@@ -796,6 +920,207 @@ extension ProjectsCommand {
             createdAt: OutputFormat.iso8601String(from: session.createdAt),
             openedAt: OutputFormat.iso8601String(from: session.openedAt)
         )
+    }
+
+    struct LoadedProjectSnapshot {
+        let snapshot: ProjectBundleSnapshot
+        let bundleURL: URL
+    }
+
+    static func loadProjectSnapshot(
+        explicitPath: String?,
+        context: ProjectCommandContext
+    ) async throws -> LoadedProjectSnapshot {
+        if let explicitPath = explicitPath?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !explicitPath.isEmpty {
+            let bundleURL = openableBundleURL(for: explicitPath, fileManager: context.fileManager)
+            let bundle = try ProjectBundleReader(fileManager: context.fileManager).read(from: bundleURL)
+            return LoadedProjectSnapshot(snapshot: bundle.snapshot, bundleURL: bundleURL)
+        }
+
+        let activeSession = try requireActiveSession(in: context)
+        try await hydrateRuntimeSession(for: activeSession, in: context)
+        let project = try await requireProjectRecord(for: activeSession.projectID, in: context)
+        let bundleURL = URL(fileURLWithPath: activeSession.bundlePath, isDirectory: true)
+        let manifestModelID = try? ProjectBundleReader(fileManager: context.fileManager)
+            .read(from: bundleURL)
+            .manifest
+            .modelID
+        return LoadedProjectSnapshot(
+            snapshot: ProjectBundleSnapshot(
+                project: project,
+                modelID: manifestModelID ?? nil,
+                chapters: await context.projectStore.chapters(for: activeSession.projectID),
+                renderJobs: await context.projectStore.renderJobs(for: activeSession.projectID),
+                exports: await context.projectStore.exports(for: activeSession.projectID),
+                speakers: await context.projectStore.speakers(for: activeSession.projectID)
+            ),
+            bundleURL: bundleURL
+        )
+    }
+
+    static func lookupSpeechModel(
+        _ rawModelID: String?,
+        in context: ProjectCommandContext
+    ) async throws -> CatalogModel? {
+        guard let rawModelID = rawModelID?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !rawModelID.isEmpty else {
+            return nil
+        }
+        let models = try await context.runtime.modelCatalog.supportedModels()
+        guard let model = models.first(where: { $0.id.rawValue == rawModelID }) else {
+            throw ValidationError("Unknown model '\(rawModelID)'. Run 'valartts models list' to see supported identifiers.")
+        }
+        guard model.descriptor.capabilities.contains(.speechSynthesis) else {
+            throw ValidationError("Model '\(rawModelID)' is not a speech synthesis model.")
+        }
+        return model
+    }
+
+    static func printScriptLint(_ payload: ProjectScriptLintPayloadDTO) {
+        print(payload.message)
+        if let projectTitle = payload.projectTitle {
+            print("Project: \(projectTitle)")
+        }
+        if let modelID = payload.modelID {
+            print("Model: \(modelID)")
+        }
+        print("Parsed script lines: \(payload.lines.count)")
+        print("Issues: \(payload.issueCount) (\(payload.warningCount) warning, \(payload.errorCount) error)")
+
+        if let voiceBible = payload.voiceBible, !voiceBible.profiles.isEmpty {
+            print("")
+            print("Voice bible:")
+            for profile in voiceBible.profiles {
+                let voice = profile.voiceModelID ?? "unassigned"
+                let warnings = profile.warnings.isEmpty ? "" : " | \(profile.warnings.joined(separator: "; "))"
+                print("  - \(profile.name): \(profile.segmentCount) segment(s), \(voice), \(profile.language)\(warnings)")
+            }
+        }
+
+        guard !payload.issues.isEmpty else { return }
+        print("")
+        print("severity\tcode\tline\tspeaker\tmessage")
+        for issue in payload.issues {
+            print([
+                issue.severity,
+                issue.code,
+                issue.lineNumber.map(String.init) ?? "-",
+                issue.speakerLabel ?? "-",
+                issue.message,
+            ].map(tabSafe).joined(separator: "\t"))
+        }
+    }
+
+    static func exportPackManifest(
+        snapshot: ProjectBundleSnapshot,
+        bundleURL: URL,
+        generatedAt: Date,
+        fileManager: FileManager
+    ) throws -> ProjectExportPackManifestDTO {
+        let chapters = snapshot.chapters.sorted { lhs, rhs in
+            lhs.index == rhs.index ? lhs.title < rhs.title : lhs.index < rhs.index
+        }
+        let chapterDTOs = chapters.map { chapter in
+            ProjectExportPackChapterDTO(
+                id: chapter.id.uuidString,
+                index: chapter.index,
+                title: chapter.title,
+                textLength: chapter.script.count,
+                speakerLabel: chapter.speakerLabel,
+                sourceHash: ProjectScriptMarkup.sourceHash(
+                    title: chapter.title,
+                    text: chapter.script,
+                    speakerLabel: chapter.speakerLabel
+                )
+            )
+        }
+        let exportsDirectory = bundleURL.appendingPathComponent("Exports", isDirectory: true)
+        let artifacts = snapshot.exports.sorted { $0.createdAt < $1.createdAt }.map { export in
+            let fileName = safeExportFileName(export.fileName, fallbackID: export.id)
+            let fileURL = exportsDirectory.appendingPathComponent(fileName, isDirectory: false)
+            let exists = fileManager.fileExists(atPath: fileURL.path)
+            let byteCount = exists ? fileSize(at: fileURL) : nil
+            let checksum = export.checksum ?? (exists ? try? streamingSHA256(at: fileURL) : nil)
+            return ProjectExportArtifactDTO(
+                id: export.id.uuidString,
+                kind: "chapter_audio",
+                path: "Exports/\(fileName)",
+                mimeType: mimeType(for: fileURL),
+                checksum: checksum,
+                byteCount: byteCount
+            )
+        }
+        let voiceBible = ProjectScriptMarkup.voiceBible(
+            projectID: snapshot.project.id,
+            chapters: chapters,
+            speakers: snapshot.speakers,
+            generatedAt: generatedAt
+        )
+        let notes = artifacts.isEmpty
+            ? ["No chapter audio exports were recorded yet. Run `valartts exports create --chapter <id>` first."]
+            : ["Artifact paths are relative to the `.valarproject` bundle root.", "Checksums use SHA-256 when available."]
+
+        return ProjectExportPackManifestDTO(
+            generatedAt: OutputFormat.iso8601String(from: generatedAt),
+            projectID: snapshot.project.id.uuidString,
+            projectTitle: snapshot.project.title,
+            modelID: snapshot.modelID,
+            chapterCount: chapters.count,
+            chapters: chapterDTOs,
+            voiceBible: voiceBible,
+            artifacts: artifacts,
+            notes: notes
+        )
+    }
+
+    static func fileSize(at url: URL) -> Int? {
+        guard let values = try? url.resourceValues(forKeys: [.fileSizeKey]),
+              let size = values.fileSize else {
+            return nil
+        }
+        return size
+    }
+
+    static func safeExportFileName(_ rawValue: String, fallbackID: UUID) -> String {
+        let trimmed = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let fileName = URL(fileURLWithPath: trimmed, isDirectory: false).lastPathComponent
+        guard !fileName.isEmpty, fileName != "." else {
+            return "\(fallbackID.uuidString).wav"
+        }
+        return fileName
+    }
+
+    static func mimeType(for url: URL) -> String? {
+        switch url.pathExtension.lowercased() {
+        case "wav": return "audio/wav"
+        case "m4a": return "audio/mp4"
+        case "mp3": return "audio/mpeg"
+        case "json": return "application/json"
+        case "srt": return "application/x-subrip"
+        case "vtt": return "text/vtt"
+        default: return nil
+        }
+    }
+
+    static func streamingSHA256(at url: URL) throws -> String {
+        let fileHandle = try FileHandle(forReadingFrom: url)
+        defer { try? fileHandle.close() }
+
+        var hasher = SHA256()
+        let chunkSize = 64 * 1024
+
+        while let chunk = try fileHandle.read(upToCount: chunkSize), chunk.isEmpty == false {
+            hasher.update(data: chunk)
+        }
+
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func tabSafe(_ value: String) -> String {
+        value
+            .replacingOccurrences(of: "\t", with: " ")
+            .replacingOccurrences(of: "\n", with: " ")
     }
 }
 

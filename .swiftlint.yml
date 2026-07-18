@@ -1,4 +1,4 @@
-# .swiftlint.yml — ValarTTS
+# .swiftlint.yml — Valar
 # SwiftLint configuration for a SwiftUI + Swift 6 project.
 # Run: swiftlint lint --config .swiftlint.yml
 
@@ -38,5 +38,5 @@ trailing_newline: warning
 # ── Disabled rules ────────────────────────────────────────────────────────────
 # Disable rules that conflict with Swift 6 concurrency patterns or generated code.
 disabled_rules:
-  - todo               # TODOs are tracked in Linear, not lint
+  - todo               # TODO policy is handled during review, not lint
   - identifier_name    # Short loop vars (i, x, db) are idiomatic in Swift

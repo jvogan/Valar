@@ -251,6 +251,53 @@ struct TTSLoaderResolutionTests {
             #expect(error.errorDescription?.contains("meta-llama/Llama-3.2-1B") == true)
         }
     }
+
+    @Test func testModelDownloadValidationErrorsDoNotRecommendBlindRetry() {
+        let incompleteMessage = ModelUtilsError.incompleteDownload("example/model")
+            .errorDescription ?? ""
+        #expect(incompleteMessage.contains("zero-byte weight files"))
+        #expect(incompleteMessage.contains("please try again") == false)
+        #expect(incompleteMessage.contains("verify the repository contains non-empty model weights"))
+
+        let missingFilesMessage = ModelUtilsError.missingRequiredFiles(
+            "example/model",
+            ["config.json", "weights/model.safetensors"]
+        ).errorDescription ?? ""
+        #expect(missingFilesMessage.contains("config.json"))
+        #expect(missingFilesMessage.contains("weights/model.safetensors"))
+        #expect(missingFilesMessage.contains("please try again") == false)
+        #expect(missingFilesMessage.contains("install cannot continue until those files are available"))
+    }
+
+    @Test func testDownloadProgressMessageUsesByteUnitsInsteadOfFiles() {
+        let progress = Progress(totalUnitCount: 1_024)
+        progress.completedUnitCount = 512
+
+        let message = ModelUtils.downloadProgressMessage(for: progress)
+
+        #expect(message.contains("50%"))
+        #expect(message.localizedCaseInsensitiveContains("file") == false)
+        #expect(message.contains("512"))
+        #expect(message.contains("1"))
+    }
+
+    @Test func testDownloadProgressMessageClampsCompletedPercentage() {
+        let progress = Progress(totalUnitCount: 100)
+        progress.completedUnitCount = 101
+
+        #expect(ModelUtils.downloadProgressMessage(for: progress).contains("(100%)"))
+    }
+
+    @Test func testDownloadProgressMessageHandlesUnknownTotal() {
+        let progress = Progress(totalUnitCount: 0)
+        progress.completedUnitCount = 2_048
+
+        let message = ModelUtils.downloadProgressMessage(for: progress)
+
+        #expect(message.contains("downloaded"))
+        #expect(message.localizedCaseInsensitiveContains("file") == false)
+        #expect(message.contains("2"))
+    }
 }
 
 private func makeTadaFixture(includeTokenizer: Bool = true) throws -> URL {

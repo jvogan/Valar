@@ -163,7 +163,7 @@ final class GeneratorState {
         }
 
         if requiresInlineReferenceAudio, selectedReferenceAudioURL == nil {
-            errorMessage = "Reference audio is required for the selected TADA model."
+            errorMessage = "Reference audio is required for the selected model."
             resetGeneratedAudio()
             return
         }

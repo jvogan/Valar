@@ -294,19 +294,14 @@ struct ModelDetailView: View {
     private func familyDisplayName(_ rawValue: String) -> String {
         switch rawValue {
         case "qwen3_tts": return "Qwen3 TTS"
-        case "tada_tts": return "TADA"
         case "voxtral_tts": return "Voxtral"
-        case "orpheus_tts": return "Orpheus"
-        case "marvis_tts": return "Marvis"
-        case "chatterbox_tts": return "Chatterbox"
         case "soprano": return "Soprano"
-        case "pocket_tts": return "Pocket TTS"
         case "qwen3_asr": return "Qwen3 ASR"
         case "qwen3_forced_aligner": return "Qwen3 Aligner"
-        case "whisper": return "Whisper"
-        case "lfm_audio": return "LFM Audio"
         case "vibevoice_realtime_tts": return "VibeVoice"
-        default: return rawValue
+        case "apple_tts": return "Apple System TTS"
+        case "apple_asr": return "Apple System ASR"
+        default: return "Compatibility"
         }
     }
 

@@ -14,7 +14,7 @@ struct GeneratorReferenceAudioSection: View {
                         .font(.headline)
                     Text(
                         state.requiresInlineReferenceAudio
-                            ? "TADA needs a reference clip at generation time. Transcript is optional for English and recommended elsewhere."
+                            ? "The selected model needs a reference clip at generation time. A transcript is recommended."
                             : "Optional reference clip for audio-conditioned speech models."
                     )
                     .font(.caption)

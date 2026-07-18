@@ -38,9 +38,9 @@ Runtime memory usage varies by model family and request size. `Soprano` is the e
 
 Valar code is MIT, but model weights keep their upstream licenses.
 
-- `Soprano` is listed as a model license with attribution in the public catalog
+- `Soprano` uses Apache-2.0
 - `VibeVoice` uses MIT
-- `Qwen` uses the Qwen License Agreement
+- `Qwen` uses Apache-2.0
 - `Voxtral` is non-commercial only
 
 Check the exact model card and license before commercial deployment. Valar does not provide legal advice.

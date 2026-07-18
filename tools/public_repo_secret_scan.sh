@@ -102,9 +102,6 @@ while IFS= read -r rel; do
     .gitleaks.toml|.gitleaksignore)
       continue
       ;;
-    tools/public_repo_audit.sh|tools/public_repo_history_scan.sh|tools/public_repo_rules.sh|tools/public_repo_secret_scan.sh)
-      continue
-      ;;
   esac
   printf '%s\0' "$rel" >> "$TMP_FILE_LIST"
 done < <(collect_files "$SCAN_ROOT")

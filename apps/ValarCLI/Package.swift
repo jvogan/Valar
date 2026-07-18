@@ -36,7 +36,9 @@ let package = Package(
             dependencies: [
                 "valartts",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "ValarCore", package: "ValarCore"),
                 .product(name: "ValarModelKit", package: "ValarModelKit"),
+                .product(name: "ValarPersistence", package: "ValarPersistence"),
             ],
             path: "Tests/ValarCLITests"
         ),

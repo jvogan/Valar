@@ -43,16 +43,16 @@ struct SpeakCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Qwen VoiceDesign instruction prompt for the target speaking style.")
     var instruct: String?
 
-    @Option(name: .long, help: "Optional reference audio file for one-shot cloning (for example with TADA).")
+    @Option(name: .long, help: "Optional reference audio file for one-shot cloning with a compatible model.")
     var referenceAudio: String?
 
     @Option(name: .long, help: "Optional transcript for the reference audio. Strongly recommended; saved-voice creation still requires it.")
     var referenceTranscript: String?
 
-    @Option(name: .long, help: "Chatterbox emotion exaggeration (0.0-1.0).")
+    @Option(name: .long, help: "Optional emotion exaggeration for compatible models (0.0-1.0).")
     var exaggeration: Float?
 
-    @Option(name: .long, help: "Chatterbox classifier-free guidance weight (0.0-1.0).")
+    @Option(name: .long, help: "Optional classifier-free guidance weight for compatible models (0.0-1.0).")
     var cfgWeight: Float?
 
     @Option(name: .long, help: "Language code for synthesis (e.g. EN, FR, DE, ES, NL, PT, IT, HI, AR). Defaults to auto-detection.")
@@ -486,7 +486,7 @@ struct SpeakCommand: AsyncParsableCommand {
             )
         case .tadaTTS:
             throw SpeakCommandError.invalidArgument(
-                "TADA models use saved voices, not named presets. " +
+                "The selected compatibility model uses saved voices, not named presets. " +
                 "Create a voice with 'valartts voices create --reference-audio <file>' then use the UUID. " +
                 "Or pass --reference-audio directly."
             )
