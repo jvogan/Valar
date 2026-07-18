@@ -97,7 +97,7 @@ private extension AccelerateAudioResampler {
             return desample(
                 channel,
                 decimationFactor: exactFactor,
-                filter: [1],
+                filter: downsamplePlan.filter,
                 outputCount: targetFrameCount
             )
         }
@@ -143,7 +143,10 @@ private extension AccelerateAudioResampler {
             return DownsamplePlan(
                 exactFactor: roundedFactor,
                 decimationFactor: roundedFactor,
-                filter: [1],
+                filter: cachedLowPassFilter(
+                    overallRatio: targetRate / sourceRate,
+                    decimationFactor: roundedFactor
+                ),
                 residualRatio: 1
             )
         }

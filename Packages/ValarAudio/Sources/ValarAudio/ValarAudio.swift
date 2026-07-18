@@ -136,6 +136,32 @@ public struct AudioWaveformSummary: Codable, Sendable, Equatable {
 
 public protocol AudioDecoder: Sendable {
     func decode(_ data: Data, hint: String?) async throws -> AudioPCMBuffer
+    func decode(fileAt url: URL, hint: String?) async throws -> AudioPCMBuffer
+}
+
+extension AudioDecoder {
+    /// Compatibility fallback for decoders that only accept in-memory bytes.
+    /// File-aware decoders should override this to avoid an encoded-file copy.
+    public func decode(fileAt url: URL, hint: String?) async throws -> AudioPCMBuffer {
+        let maximumEncodedFileBytes = 128 * 1_024 * 1_024
+        let values = try url.resourceValues(
+            forKeys: [.fileSizeKey, .isDirectoryKey, .isRegularFileKey]
+        )
+        guard values.isDirectory != true,
+              values.isRegularFile == true,
+              let fileSize = values.fileSize,
+              fileSize >= 0,
+              fileSize <= maximumEncodedFileBytes else {
+            throw AudioPipelineError.decodingFailed(
+                "Compatibility audio input must be a regular file no larger than \(maximumEncodedFileBytes) bytes"
+            )
+        }
+        try Task.checkCancellation()
+        return try await decode(
+            Data(contentsOf: url, options: .mappedIfSafe),
+            hint: hint
+        )
+    }
 }
 
 public protocol AudioResampler: Sendable {
@@ -257,6 +283,10 @@ enum TemporaryAudioFileSecurity {
 }
 
 public actor AudioPipeline {
+    /// Compatibility-only full-buffer concatenation ceiling. Long-form callers
+    /// should use the streaming WAV/M4A sinks instead of duplicating PCM here.
+    static let maximumConcatenatedPCMBytes = 64 * 1_024 * 1_024
+
     private let decoder: any AudioDecoder
     private let resampler: any AudioResampler
     private let exporter: any AudioExporter
@@ -273,6 +303,10 @@ public actor AudioPipeline {
 
     public func decode(_ data: Data, hint: String? = nil) async throws -> AudioPCMBuffer {
         try await decoder.decode(data, hint: hint)
+    }
+
+    public func decode(fileAt url: URL, hint: String? = nil) async throws -> AudioPCMBuffer {
+        try await decoder.decode(fileAt: url, hint: hint)
     }
 
     public func resample(_ buffer: AudioPCMBuffer, to sampleRate: Double) async throws -> AudioPCMBuffer {
@@ -353,16 +387,75 @@ public actor AudioPipeline {
 
     public func concatenate(_ buffers: [AudioPCMBuffer]) -> AudioPCMBuffer? {
         guard let first = buffers.first else { return nil }
-        var combined = Array(repeating: [Float](), count: first.channels.count)
+        guard first.format.sampleRate.isFinite,
+              first.format.sampleRate > 0,
+              !first.channels.isEmpty,
+              first.format.channelCount == first.channels.count,
+              first.channels.dropFirst().allSatisfy({
+                  $0.count == first.channels[0].count
+              }) else {
+            return nil
+        }
+        var channelCapacities = Array(repeating: 0, count: first.channels.count)
 
         for buffer in buffers {
-            guard buffer.channels.count == combined.count else { return nil }
+            guard buffer.channels.count == first.channels.count,
+                  buffer.format.channelCount == first.format.channelCount,
+                  buffer.format.sampleFormat == first.format.sampleFormat,
+                  buffer.format.interleaved == first.format.interleaved,
+                  buffer.format.sampleRate.isFinite,
+                  abs(buffer.format.sampleRate - first.format.sampleRate)
+                    <= max(0.001, first.format.sampleRate * 1e-9),
+                  buffer.channels.dropFirst().allSatisfy({
+                      $0.count == buffer.channels[0].count
+                  }) else {
+                return nil
+            }
+            for index in buffer.channels.indices {
+                let (capacity, overflowed) = channelCapacities[index]
+                    .addingReportingOverflow(buffer.channels[index].count)
+                guard !overflowed else { return nil }
+                channelCapacities[index] = capacity
+            }
+        }
+        guard Self.validatedConcatenatedPCMByteCount(
+            channelSampleCounts: channelCapacities
+        ) != nil else {
+            return nil
+        }
+
+        var combined = channelCapacities.map { capacity -> [Float] in
+            var channel: [Float] = []
+            channel.reserveCapacity(capacity)
+            return channel
+        }
+        for buffer in buffers {
             for index in buffer.channels.indices {
                 combined[index].append(contentsOf: buffer.channels[index])
             }
         }
 
         return AudioPCMBuffer(channels: combined, format: first.format)
+    }
+
+    static func validatedConcatenatedPCMByteCount(
+        channelSampleCounts: [Int]
+    ) -> Int? {
+        var totalSampleCount = 0
+        for sampleCount in channelSampleCounts {
+            guard sampleCount >= 0 else { return nil }
+            let (nextTotal, overflowed) = totalSampleCount.addingReportingOverflow(sampleCount)
+            guard !overflowed else { return nil }
+            totalSampleCount = nextTotal
+        }
+        let (byteCount, overflowed) = totalSampleCount.multipliedReportingOverflow(
+            by: MemoryLayout<Float>.stride
+        )
+        guard !overflowed,
+              byteCount <= maximumConcatenatedPCMBytes else {
+            return nil
+        }
+        return byteCount
     }
 
     public func waveform(for buffer: AudioPCMBuffer, bucketCount: Int = 32) -> AudioWaveformSummary {

@@ -1,10 +1,30 @@
 import AVFoundation
+import Darwin
 import Foundation
 import XCTest
 @testable import ValarAudio
 import Dispatch
 
 final class ValarAudioTests: XCTestCase {
+    func testStreamingM4AMarkerUsesCumulativeFrameOffset() throws {
+        let marker = try XCTUnwrap(StreamingM4AWriter.chapterMarker(
+            title: "  Chapter Two  ",
+            startFrame: 24_000,
+            frameCount: 12_000,
+            sampleRate: 24_000
+        ))
+
+        XCTAssertEqual(marker.title, "Chapter Two")
+        XCTAssertEqual(marker.startTime, 1, accuracy: 0.000_001)
+        XCTAssertEqual(marker.duration, 0.5, accuracy: 0.000_001)
+        XCTAssertNil(StreamingM4AWriter.chapterMarker(
+            title: "   ",
+            startFrame: 0,
+            frameCount: 1,
+            sampleRate: 24_000
+        ))
+    }
+
     func testExportProducesValidData() async throws {
         let buffer = AudioPCMBuffer(mono: [0, 0.25, 0.5, 1.0], sampleRate: 24_000, container: "wav")
         let exporter = AVFoundationAudioExporter()
@@ -52,6 +72,33 @@ final class ValarAudioTests: XCTestCase {
         XCTAssertEqual(decoded.frameCount, original.frameCount)
         XCTAssertEqual(decoded.format.sampleRate, 24_000)
         XCTAssertEqual(decoded.format.channelCount, 1)
+    }
+
+    func testFileURLDecodeAvoidsEncodedDataAPI() async throws {
+        let buffer = AudioPCMBuffer(
+            mono: [0, 0.25, 0.5, 0.75],
+            sampleRate: 24_000
+        )
+        let url = makeTemporaryURL(pathExtension: "wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        _ = try await AVFoundationAudioExporter().export(
+            buffer,
+            as: AudioFormatDescriptor(
+                sampleRate: 24_000,
+                channelCount: 1,
+                container: "wav"
+            ),
+            to: url,
+            chapterMarkers: []
+        )
+
+        let decoded = try await AVFoundationAudioDecoder().decode(
+            fileAt: url,
+            hint: "wav"
+        )
+
+        XCTAssertEqual(decoded.frameCount, buffer.frameCount)
+        XCTAssertEqual(decoded.format.sampleRate, buffer.format.sampleRate)
     }
 
     func testM4AExportProducesAACFile() async throws {
@@ -142,17 +189,26 @@ final class ValarAudioTests: XCTestCase {
         XCTAssertEqual(result.channels[0], expected)
     }
 
-    func testResamplerDownsampleIntegerRatioMatchesNaiveLoopExactly() async throws {
-        let samples = (0..<24).map { index in
-            Float(index % 7) / 6 - 0.5
+    func testResamplerDownsampleIntegerRatioRejectsAboveNyquistTone() async throws {
+        let sourceRate = 48_000.0
+        let targetRate = 24_000.0
+        let samples = (0..<48_000).map { index in
+            Float(sin((2 * Double.pi * 18_000 * Double(index)) / sourceRate))
         }
-        let buffer = AudioPCMBuffer(mono: samples, sampleRate: 48_000)
+        let buffer = AudioPCMBuffer(mono: samples, sampleRate: sourceRate)
         let resampler = AccelerateAudioResampler()
 
-        let result = try await resampler.resample(buffer, to: 24_000)
-        let expected = naiveResample(samples, sourceRate: 48_000, targetRate: 24_000)
+        let result = try await resampler.resample(buffer, to: targetRate)
+        let output = result.channels[0]
+        let edgeFrames = 128
+        let settledOutput = output.dropFirst(edgeFrames).dropLast(edgeFrames)
+        let rms = sqrt(
+            settledOutput.reduce(Float.zero) { $0 + ($1 * $1) }
+                / Float(settledOutput.count)
+        )
 
-        XCTAssertEqual(result.channels[0], expected)
+        XCTAssertEqual(result.frameCount, 24_000)
+        XCTAssertLessThan(rms, 0.05, "Above-Nyquist energy should be filtered before exact-ratio decimation")
     }
 
     func testResamplerHandlesNonIntegerRatioShortBuffer() async throws {
@@ -363,6 +419,220 @@ final class ValarAudioTests: XCTestCase {
         XCTAssertEqual(combined?.frameCount, 5)
     }
 
+    func testConcatenateRejectsMismatchedSampleRates() async {
+        let first = AudioPCMBuffer(mono: [0, 1], sampleRate: 24_000)
+        let second = AudioPCMBuffer(mono: [2, 3], sampleRate: 48_000)
+        let pipeline = AudioPipeline()
+
+        let combined = await pipeline.concatenate([first, second])
+
+        XCTAssertNil(combined)
+    }
+
+    func testConcatenateRejectsUnequalPlanarChannelLengths() async {
+        let malformed = AudioPCMBuffer(
+            channels: [[0, 1], [0]],
+            format: AudioFormatDescriptor(sampleRate: 24_000, channelCount: 2)
+        )
+        let pipeline = AudioPipeline()
+
+        let combined = await pipeline.concatenate([malformed])
+
+        XCTAssertNil(combined)
+    }
+
+    func testConcatenateByteCeilingIsCheckedWithoutAllocatingPCM() {
+        let maximumSampleCount =
+            AudioPipeline.maximumConcatenatedPCMBytes / MemoryLayout<Float>.stride
+
+        XCTAssertEqual(
+            AudioPipeline.validatedConcatenatedPCMByteCount(
+                channelSampleCounts: [maximumSampleCount]
+            ),
+            AudioPipeline.maximumConcatenatedPCMBytes
+        )
+        XCTAssertNil(
+            AudioPipeline.validatedConcatenatedPCMByteCount(
+                channelSampleCounts: [maximumSampleCount, 1]
+            )
+        )
+        XCTAssertNil(
+            AudioPipeline.validatedConcatenatedPCMByteCount(
+                channelSampleCounts: [Int.max, 1]
+            )
+        )
+    }
+
+    func testDecoderRejectsOversizedDecodedPCMBeforeAllocation() {
+        let maximumFrames =
+            AVFoundationAudioDecoder.maximumDecodedPCMBytes / MemoryLayout<Float>.size
+
+        XCTAssertNoThrow(try AVFoundationAudioDecoder.validatedDecodedPCMByteCount(
+            frameCount: Int64(maximumFrames),
+            channelCount: 1
+        ))
+        XCTAssertThrowsError(try AVFoundationAudioDecoder.validatedDecodedPCMByteCount(
+            frameCount: Int64(maximumFrames) + 1,
+            channelCount: 1
+        ))
+        XCTAssertThrowsError(try AVFoundationAudioDecoder.validatedDecodedPCMByteCount(
+            frameCount: .max,
+            channelCount: 64
+        ))
+    }
+
+    func testExporterRejectsFormatThatWouldReadMissingChannels() async {
+        let exporter = AVFoundationAudioExporter()
+        let mono = AudioPCMBuffer(mono: [0, 0.25], sampleRate: 24_000)
+
+        do {
+            _ = try await exporter.export(
+                mono,
+                as: AudioFormatDescriptor(
+                    sampleRate: 24_000,
+                    channelCount: 2,
+                    container: "wav"
+                )
+            )
+            XCTFail("Expected channel mismatch rejection")
+        } catch {
+            XCTAssertTrue(error is AudioPipelineError)
+        }
+    }
+
+    func testFailedExportPreservesExistingDestination() async throws {
+        let exporter = AVFoundationAudioExporter()
+        let destinationURL = makeTemporaryURL(pathExtension: "wav")
+        let original = Data("existing-audio".utf8)
+        try original.write(to: destinationURL)
+        defer { try? FileManager.default.removeItem(at: destinationURL) }
+
+        do {
+            _ = try await exporter.export(
+                AudioPCMBuffer(mono: [0, 0.25], sampleRate: 24_000),
+                as: AudioFormatDescriptor(
+                    sampleRate: 24_000,
+                    channelCount: 1,
+                    container: "unsupported"
+                ),
+                to: destinationURL,
+                chapterMarkers: []
+            )
+            XCTFail("Expected unsupported export format")
+        } catch {
+            XCTAssertEqual(try Data(contentsOf: destinationURL), original)
+        }
+    }
+
+    func testWaveExportReplacesExistingRegularFileAfterSuccess() async throws {
+        let exporter = AVFoundationAudioExporter()
+        let destinationURL = makeTemporaryURL(pathExtension: "wav")
+        try Data("existing-audio".utf8).write(to: destinationURL)
+        defer { try? FileManager.default.removeItem(at: destinationURL) }
+
+        _ = try await exporter.export(
+            AudioPCMBuffer(mono: [0, 0.25], sampleRate: 24_000),
+            as: AudioFormatDescriptor(
+                sampleRate: 24_000,
+                channelCount: 1,
+                container: "wav"
+            ),
+            to: destinationURL,
+            chapterMarkers: []
+        )
+
+        let data = try Data(contentsOf: destinationURL)
+        XCTAssertEqual(String(decoding: data.prefix(4), as: UTF8.self), "RIFF")
+    }
+
+    func testExportRejectsSymbolicLinkDestination() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let targetURL = root.appendingPathComponent("target.wav")
+        let linkURL = root.appendingPathComponent("link.wav")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("do-not-replace".utf8).write(to: targetURL)
+        try FileManager.default.createSymbolicLink(at: linkURL, withDestinationURL: targetURL)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        do {
+            _ = try await AVFoundationAudioExporter().export(
+                AudioPCMBuffer(mono: [0, 0.25], sampleRate: 24_000),
+                as: AudioFormatDescriptor(
+                    sampleRate: 24_000,
+                    channelCount: 1,
+                    container: "wav"
+                ),
+                to: linkURL,
+                chapterMarkers: []
+            )
+            XCTFail("Expected symbolic-link destination rejection")
+        } catch {
+            XCTAssertEqual(
+                try Data(contentsOf: targetURL),
+                Data("do-not-replace".utf8)
+            )
+        }
+    }
+
+    func testStreamingWriterRejectsSymbolicLinkDestination() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let targetURL = root.appendingPathComponent("target.wav")
+        let linkURL = root.appendingPathComponent("link.wav")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        try Data("keep-target".utf8).write(to: targetURL)
+        try FileManager.default.createSymbolicLink(
+            at: linkURL,
+            withDestinationURL: targetURL
+        )
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        XCTAssertThrowsError(
+            try StreamingWAVWriter(
+                url: linkURL,
+                sampleRate: 24_000,
+                channelCount: 1
+            )
+        )
+        XCTAssertEqual(try Data(contentsOf: targetURL), Data("keep-target".utf8))
+    }
+
+    func testStreamingWriterRejectsDirectoryDestination() throws {
+        let destinationURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(
+            at: destinationURL,
+            withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: destinationURL) }
+
+        XCTAssertThrowsError(
+            try StreamingWAVWriter(
+                url: destinationURL,
+                sampleRate: 24_000,
+                channelCount: 1
+            )
+        )
+    }
+
+    func testStreamingWriterRejectsNonRegularDestination() throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let fifoURL = root.appendingPathComponent("audio.fifo")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        XCTAssertEqual(Darwin.mkfifo(fifoURL.path, mode_t(0o600)), 0)
+        defer { try? FileManager.default.removeItem(at: root) }
+
+        XCTAssertThrowsError(
+            try StreamingWAVWriter(
+                url: fifoURL,
+                sampleRate: 24_000,
+                channelCount: 1
+            )
+        )
+    }
+
     func testWaveformSummary() async {
         let buffer = AudioPCMBuffer(mono: [0, 0.5, -0.5, 1.0, -1.0], sampleRate: 24_000)
         let pipeline = AudioPipeline()
@@ -565,6 +835,37 @@ final class ValarAudioTests: XCTestCase {
         }
     }
 
+    func testDecodePCMFloat32LERejectsInvalidFormatMetadata() async throws {
+        let decoder = AVFoundationAudioDecoder()
+        let data = makePCMFloat32LEData([0, 0.1])
+
+        for hint in [
+            "pcm_f32le:nan:1",
+            "pcm_f32le:999:1",
+            "pcm_f32le:24000:0",
+            "pcm_f32le:24000:65",
+        ] {
+            do {
+                _ = try await decoder.decode(data, hint: hint)
+                XCTFail("Expected invalid PCM hint rejection for \(hint)")
+            } catch AudioPipelineError.decodingFailed {
+                // Expected.
+            }
+        }
+    }
+
+    func testDecodePCMFloat32LERejectsIncompleteInterleavedFrame() async throws {
+        let decoder = AVFoundationAudioDecoder()
+        let data = makePCMFloat32LEData([0, 0.1, 0.2])
+
+        do {
+            _ = try await decoder.decode(data, hint: "pcm_f32le:24000:2")
+            XCTFail("Expected incomplete stereo frame rejection")
+        } catch AudioPipelineError.decodingFailed {
+            // Expected.
+        }
+    }
+
     func testDecodePCMFloat32LERoundTripsAgainstMLXEncoding() async throws {
         // Mirror the encoding MLXModelHandle.pcmFloat32LEData uses: withUnsafeBufferPointer + Data(bytes:count:)
         let original: [Float] = [0, 0.1, -0.3, 0.7, -1.0, 1.0]
@@ -733,6 +1034,26 @@ final class ValarAudioTests: XCTestCase {
 // MARK: - AudioEnginePlayer.feedSamples tests
 
 final class AudioEnginePlayerFeedSamplesTests: XCTestCase {
+
+    func testTemporaryQueueDrainWaitsForMoreAudio() {
+        XCTAssertEqual(
+            AudioEnginePlayer.queueDrainDisposition(
+                finishedStreaming: false,
+                totalEnqueuedFrames: 2_400
+            ),
+            .awaitMoreAudio
+        )
+    }
+
+    func testFinishedQueueDrainStopsAfterPlayback() {
+        XCTAssertEqual(
+            AudioEnginePlayer.queueDrainDisposition(
+                finishedStreaming: true,
+                totalEnqueuedFrames: 2_400
+            ),
+            .finishPlayback(didPlayAudio: true)
+        )
+    }
 
     /// `makeAVAudioBufferFromSamples` must copy Float values into `floatChannelData`
     /// byte-for-byte, with no intermediate Data conversion.

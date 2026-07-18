@@ -1,4 +1,5 @@
 import AVFoundation
+import Darwin
 import Foundation
 
 /// A streaming WAV writer that accepts audio sample chunks incrementally.
@@ -26,6 +27,7 @@ import Foundation
 /// `StreamingWAVWriter` is an actor. All append and finalize calls are actor-isolated
 /// and safe to call from concurrent async contexts.
 public actor StreamingWAVWriter {
+    private static let framesPerWrite = 16_384
 
     // MARK: - State
 
@@ -47,8 +49,8 @@ public actor StreamingWAVWriter {
 
     /// Opens a new WAV file at `url` for streaming writes.
     ///
-    /// Intermediate directories are created if needed. Any existing file at `url`
-    /// is removed before opening.
+    /// Intermediate directories are created if needed. An existing regular file
+    /// at `url` is replaced; symbolic links and other entry types are rejected.
     ///
     /// - Parameters:
     ///   - url: Destination path for the WAV file.
@@ -57,23 +59,38 @@ public actor StreamingWAVWriter {
     /// - Throws: `AudioPipelineError.exportFailed` if the format is invalid or the
     ///   file cannot be opened.
     public init(url: URL, sampleRate: Double, channelCount: Int) throws {
-        guard channelCount > 0, sampleRate > 0 else {
+        guard (1...64).contains(channelCount),
+              sampleRate.isFinite,
+              (1_000...768_000).contains(sampleRate) else {
             throw AudioPipelineError.exportFailed(
                 "Invalid format: channelCount=\(channelCount) sampleRate=\(sampleRate)"
             )
         }
+        guard url.isFileURL, !url.lastPathComponent.isEmpty else {
+            throw AudioPipelineError.exportFailed(
+                "Streaming WAV output must be a local file URL."
+            )
+        }
 
         // Create intermediate directories if needed.
+        let url = url.standardizedFileURL
         let directory = url.deletingLastPathComponent()
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try Self.requireRealDirectory(at: directory)
 
-        // Remove any stale file at the target location.
-        if FileManager.default.fileExists(atPath: url.path) {
-            do {
-                try FileManager.default.removeItem(at: url)
-            } catch let error as CocoaError where error.code == .fileNoSuchFile {
-                // Another process may have removed it concurrently — ignore.
-                _ = error
+        // AVAudioFile writes directly to its destination. Inspect the directory
+        // entry without following symbolic links before replacing anything.
+        if try Self.destinationEntryExists(at: url) {
+            // `unlink` cannot recursively remove a directory if the entry is
+            // swapped after lstat. It also removes a swapped link itself rather
+            // than following it.
+            if Darwin.unlink(url.path) != 0 {
+                let errorCode = errno
+                guard errorCode == ENOENT else {
+                    throw AudioPipelineError.exportFailed(
+                        "Unable to replace the streaming WAV destination (errno \(errorCode))."
+                    )
+                }
             }
         }
 
@@ -126,10 +143,21 @@ public actor StreamingWAVWriter {
         let frameCount = samples.count / channelCount
         guard frameCount > 0 else { return }
 
-        let pcmBuffer = try makePCMBuffer(frameCount: frameCount)
-        deinterleave(samples: samples, frameCount: frameCount, channelCount: channelCount, into: pcmBuffer)
-        try file!.write(from: pcmBuffer)
-        totalFramesWritten += frameCount
+        var startFrame = 0
+        while startFrame < frameCount {
+            let writeFrameCount = min(Self.framesPerWrite, frameCount - startFrame)
+            let pcmBuffer = try makePCMBuffer(frameCount: writeFrameCount)
+            deinterleave(
+                samples: samples,
+                startFrame: startFrame,
+                frameCount: writeFrameCount,
+                channelCount: channelCount,
+                into: pcmBuffer
+            )
+            try file!.write(from: pcmBuffer)
+            try addWrittenFrames(writeFrameCount)
+            startFrame += writeFrameCount
+        }
     }
 
     /// Appends an `AudioPCMBuffer` to the WAV file.
@@ -144,10 +172,29 @@ public actor StreamingWAVWriter {
         try checkOpen()
 
         let frameCount = buffer.frameCount
-        let pcmBuffer = try makePCMBuffer(frameCount: frameCount)
-        PCMCoding.fill(pcmBuffer, from: buffer.channels, frameCount: frameCount)
-        try file!.write(from: pcmBuffer)
-        totalFramesWritten += frameCount
+        guard buffer.channels.count == descriptor.channelCount,
+              buffer.channels.allSatisfy({ $0.count == frameCount }),
+              buffer.format.sampleRate.isFinite,
+              abs(buffer.format.sampleRate - descriptor.sampleRate)
+                <= max(0.001, descriptor.sampleRate * 1e-9) else {
+            throw AudioPipelineError.exportFailed(
+                "Streaming WAV input must match the writer's sample rate and equal-length channel layout."
+            )
+        }
+        var startFrame = 0
+        while startFrame < frameCount {
+            let writeFrameCount = min(Self.framesPerWrite, frameCount - startFrame)
+            let pcmBuffer = try makePCMBuffer(frameCount: writeFrameCount)
+            PCMCoding.fill(
+                pcmBuffer,
+                from: buffer.channels,
+                startFrame: startFrame,
+                frameCount: writeFrameCount
+            )
+            try file!.write(from: pcmBuffer)
+            try addWrittenFrames(writeFrameCount)
+            startFrame += writeFrameCount
+        }
     }
 
     // MARK: - Finalize
@@ -194,7 +241,9 @@ public actor StreamingWAVWriter {
                 "StreamingWAVWriter: file handle is not open"
             )
         }
-        guard let pcmBuffer = AVAudioPCMBuffer(
+        guard frameCount > 0,
+              frameCount <= Int(AVAudioFrameCount.max),
+              let pcmBuffer = AVAudioPCMBuffer(
             pcmFormat: processingFormat,
             frameCapacity: AVAudioFrameCount(frameCount)
         ) else {
@@ -206,12 +255,25 @@ public actor StreamingWAVWriter {
         return pcmBuffer
     }
 
+    private func addWrittenFrames(_ frameCount: Int) throws {
+        let (nextTotal, overflowed) = totalFramesWritten.addingReportingOverflow(
+            frameCount
+        )
+        guard !overflowed else {
+            throw AudioPipelineError.exportFailed(
+                "Streaming WAV frame count exceeds the supported integer range."
+            )
+        }
+        totalFramesWritten = nextTotal
+    }
+
     /// De-interleaves interleaved `samples` into the per-channel pointers of `pcmBuffer`.
     ///
     /// For mono, this is a single contiguous copy. For multi-channel, each channel
     /// is extracted from the interleaved layout.
     private func deinterleave(
         samples: [Float],
+        startFrame: Int,
         frameCount: Int,
         channelCount: Int,
         into pcmBuffer: AVAudioPCMBuffer
@@ -220,16 +282,53 @@ public actor StreamingWAVWriter {
             guard let dst = pcmBuffer.floatChannelData?[0] else { return }
             samples.withUnsafeBufferPointer { src in
                 if let base = src.baseAddress {
-                    dst.update(from: base, count: frameCount)
+                    dst.update(
+                        from: base.advanced(by: startFrame),
+                        count: frameCount
+                    )
                 }
             }
         } else {
             for ch in 0..<channelCount {
                 guard let dst = pcmBuffer.floatChannelData?[ch] else { continue }
                 for frame in 0..<frameCount {
-                    dst[frame] = samples[frame * channelCount + ch]
+                    dst[frame] = samples[(startFrame + frame) * channelCount + ch]
                 }
             }
         }
+    }
+
+    private static func requireRealDirectory(at url: URL) throws {
+        var metadata = stat()
+        guard Darwin.lstat(url.path, &metadata) == 0,
+              metadata.st_mode & S_IFMT == S_IFDIR else {
+            throw AudioPipelineError.exportFailed(
+                "The streaming WAV destination directory must be a real, non-symbolic-link directory."
+            )
+        }
+    }
+
+    /// Returns whether a safe-to-replace regular file already exists.
+    ///
+    /// `lstat` is intentional: `FileManager.fileExists` follows links and reports
+    /// false for dangling links, which could otherwise redirect the writer.
+    private static func destinationEntryExists(at url: URL) throws -> Bool {
+        var metadata = stat()
+        if Darwin.lstat(url.path, &metadata) == 0 {
+            guard metadata.st_mode & S_IFMT == S_IFREG else {
+                throw AudioPipelineError.exportFailed(
+                    "The streaming WAV destination must be a regular, non-symbolic-link file."
+                )
+            }
+            return true
+        }
+
+        let errorCode = errno
+        guard errorCode == ENOENT else {
+            throw AudioPipelineError.exportFailed(
+                "Unable to inspect the streaming WAV destination (errno \(errorCode))."
+            )
+        }
+        return false
     }
 }

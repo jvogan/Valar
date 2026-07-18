@@ -59,7 +59,9 @@ public final class PlaybackPositionPublisher {
         self.bridge = bridge
 
         var capturedContinuation: AsyncStream<TimeInterval>.Continuation?
-        self.stream = AsyncStream { continuation in
+        // Playback position is coalescible UI state, not lossless event data.
+        // Keep only the latest display-frame value if the consumer falls behind.
+        self.stream = AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
             capturedContinuation = continuation
         }
         self.continuation = capturedContinuation

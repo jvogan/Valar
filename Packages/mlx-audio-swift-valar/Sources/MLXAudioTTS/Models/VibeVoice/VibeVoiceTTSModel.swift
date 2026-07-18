@@ -103,6 +103,13 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
         return hash
     }
 
+    /// Retain only the condition consumed by the next diffusion step. Historical
+    /// transformer state already lives in the corresponding KV cache, so keeping
+    /// every hidden output here would duplicate an ever-growing sequence.
+    static func latestConditionState(_ hidden: MLXArray) -> MLXArray {
+        hidden[0..., (-1)..., 0...]
+    }
+
     // MARK: - Init
 
     init(config: VibeVoiceModelConfig) {
@@ -381,25 +388,16 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
             let uncondEps = eps[batchSize...]
             let guidedEps = uncondEps + MLXArray(cfgScale) * (condEps - uncondEps)
 
-            // Duplicate for scheduler
-            let fullEps = MLX.concatenated([guidedEps, guidedEps], axis: 0)
-            let fullSpeech = MLX.concatenated([speech, speech], axis: 0)
-
             // Scheduler step
             let output = noiseScheduler.step(
-                modelOutput: fullEps,
+                modelOutput: guidedEps,
                 timestep: tVal,
-                sample: fullSpeech,
+                sample: speech,
                 prevX0: prevX0
             )
 
-            // Extract positive conditioning result
-            speech = output.prevSample[..<batchSize]
-            if let x0 = output.x0Pred {
-                prevX0 = x0[..<batchSize]
-            } else {
-                prevX0 = nil
-            }
+            speech = output.prevSample
+            prevX0 = output.x0Pred
         }
 
         return speech
@@ -487,8 +485,8 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
         var lmCache: [(key: MLXArray, value: MLXArray)?]?
         var ttsCache: [(key: MLXArray, value: MLXArray)?]?
         var negCache: [(key: MLXArray, value: MLXArray)?]?
-        var ttsHidden: MLXArray?
-        var negHidden: MLXArray?
+        var ttsConditionState: MLXArray?
+        var negConditionState: MLXArray?
 
         if let voice {
             // Transpose KV caches from (B, kv_heads, seq, head_dim) to (B, seq, kv_heads, head_dim)
@@ -503,8 +501,8 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
             lmCache = transposeKV(voice.lmCache)
             ttsCache = transposeKV(voice.ttsLmCache)
             negCache = transposeKV(voice.negTtsLmCache)
-            ttsHidden = voice.ttsLmHidden
-            negHidden = voice.negTtsLmHidden
+            ttsConditionState = Self.latestConditionState(voice.ttsLmHidden)
+            negConditionState = Self.latestConditionState(voice.negTtsLmHidden)
         }
 
         var speechLatents: [MLXArray] = []
@@ -539,43 +537,33 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
                 let (ttsOut, newTtsCache) = ttsLanguageModel(inputsEmbeds: ttsIn, cache: ttsCache)
                 ttsCache = newTtsCache.map { Optional($0) }
 
-                if ttsHidden == nil {
-                    ttsHidden = ttsOut
-                } else {
-                    ttsHidden = MLX.concatenated([ttsHidden!, ttsOut], axis: 1)
-                }
+                ttsConditionState = Self.latestConditionState(ttsOut)
 
                 // Negative (unconditioned) path: zero embeddings with text type
                 // Skip when voice cache provides neg_hidden — running this would corrupt
                 // the cached negative conditioning and cause premature EOS.
-                if negHidden == nil || voice == nil {
+                if negConditionState == nil || voice == nil {
                     let negEmbed = MLXArray.zeros([batchSize, curWindow, hiddenSize])
                     let negTypeEmbed = ttsInputTypes(MLXArray.ones([batchSize, curWindow], type: Int32.self))
                     let negIn = negEmbed + negTypeEmbed
                     let (negOut, newNegCache) = ttsLanguageModel(inputsEmbeds: negIn, cache: negCache)
                     negCache = newNegCache.map { Optional($0) }
 
-                    if negHidden == nil {
-                        negHidden = negOut
-                    } else {
-                        negHidden = MLX.concatenated([negHidden!, negOut], axis: 1)
-                    }
+                    negConditionState = Self.latestConditionState(negOut)
                 }
 
                 textPrefillTime += Date().timeIntervalSince(prefillStart)
             }
 
-            guard ttsHidden != nil, negHidden != nil else {
+            guard ttsConditionState != nil, negConditionState != nil else {
                 break
             }
 
             // Generate speech latents (up to TTS_SPEECH_WINDOW_SIZE per text window)
             for _ in 0..<VibeVoiceModelConfig.ttsSpeechWindowSize {
                 // Take last hidden state as conditioning
-                let positiveCondition = ttsHidden![0..., (-1)..., 0...]
-                    .squeezed(axis: 1)
-                let negativeCondition = negHidden![0..., (-1)..., 0...]
-                    .squeezed(axis: 1)
+                let positiveCondition = ttsConditionState!.squeezed(axis: 1)
+                let negativeCondition = negConditionState!.squeezed(axis: 1)
 
                 // Sample speech latent via diffusion (instrumented)
                 let diffusionStart = Date()
@@ -603,13 +591,13 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
                 let ttsInput = acousticEmbed + speechTypeEmbed
                 let (ttsOut, newTtsCache) = ttsLanguageModel(inputsEmbeds: ttsInput, cache: ttsCache)
                 ttsCache = newTtsCache.map { Optional($0) }
-                ttsHidden = MLX.concatenated([ttsHidden!, ttsOut], axis: 1)
+                ttsConditionState = Self.latestConditionState(ttsOut)
 
                 // Negative path
                 let negInput = acousticEmbed + speechTypeEmbed
                 let (negOut, newNegCache) = ttsLanguageModel(inputsEmbeds: negInput, cache: negCache)
                 negCache = newNegCache.map { Optional($0) }
-                negHidden = MLX.concatenated([negHidden!, negOut], axis: 1)
+                negConditionState = Self.latestConditionState(negOut)
 
                 // Keep the port aligned with the upstream realtime loop so short utterances
                 // do not spill into long babbling tails.
@@ -827,8 +815,8 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
         var lmCache: [(key: MLXArray, value: MLXArray)?]?
         var ttsCache: [(key: MLXArray, value: MLXArray)?]?
         var negCache: [(key: MLXArray, value: MLXArray)?]?
-        var ttsHidden: MLXArray?
-        var negHidden: MLXArray?
+        var ttsConditionState: MLXArray?
+        var negConditionState: MLXArray?
 
         if let voice {
             func transposeKV(_ pairs: [(key: MLXArray, value: MLXArray)]) -> [(key: MLXArray, value: MLXArray)?] {
@@ -842,8 +830,8 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
             lmCache = transposeKV(voice.lmCache)
             ttsCache = transposeKV(voice.ttsLmCache)
             negCache = transposeKV(voice.negTtsLmCache)
-            ttsHidden = voice.ttsLmHidden
-            negHidden = voice.negTtsLmHidden
+            ttsConditionState = Self.latestConditionState(voice.ttsLmHidden)
+            negConditionState = Self.latestConditionState(voice.negTtsLmHidden)
         }
 
         var finished = false
@@ -873,29 +861,21 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
                 let (ttsOut, newTtsCache) = ttsLanguageModel(inputsEmbeds: ttsIn, cache: ttsCache)
                 ttsCache = newTtsCache.map { Optional($0) }
 
-                if ttsHidden == nil {
-                    ttsHidden = ttsOut
-                } else {
-                    ttsHidden = MLX.concatenated([ttsHidden!, ttsOut], axis: 1)
-                }
+                ttsConditionState = Self.latestConditionState(ttsOut)
 
                 // Negative path: skip when voice cache provides neg_hidden
-                if negHidden == nil || voice == nil {
+                if negConditionState == nil || voice == nil {
                     let negEmbed = MLXArray.zeros([batchSize, curWindow, hiddenSize])
                     let negTypeEmbed = ttsInputTypes(MLXArray.ones([batchSize, curWindow], type: Int32.self))
                     let negIn = negEmbed + negTypeEmbed
                     let (negOut, newNegCache) = ttsLanguageModel(inputsEmbeds: negIn, cache: negCache)
                     negCache = newNegCache.map { Optional($0) }
 
-                    if negHidden == nil {
-                        negHidden = negOut
-                    } else {
-                        negHidden = MLX.concatenated([negHidden!, negOut], axis: 1)
-                    }
+                    negConditionState = Self.latestConditionState(negOut)
                 }
             }
 
-            guard ttsHidden != nil, negHidden != nil else {
+            guard ttsConditionState != nil, negConditionState != nil else {
                 break
             }
 
@@ -925,10 +905,8 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
             }
 
             for _ in 0..<VibeVoiceModelConfig.ttsSpeechWindowSize {
-                let positiveCondition = ttsHidden![0..., (-1)..., 0...]
-                    .squeezed(axis: 1)
-                let negativeCondition = negHidden![0..., (-1)..., 0...]
-                    .squeezed(axis: 1)
+                let positiveCondition = ttsConditionState!.squeezed(axis: 1)
+                let negativeCondition = negConditionState!.squeezed(axis: 1)
 
                 let speechLatent = sampleSpeechTokens(
                     condition: positiveCondition,
@@ -944,12 +922,12 @@ public final class VibeVoiceTTSModel: Module, SpeechGenerationModel, @unchecked 
                 let ttsInput = acousticEmbed + speechTypeEmbed
                 let (ttsOut, newTtsCache) = ttsLanguageModel(inputsEmbeds: ttsInput, cache: ttsCache)
                 ttsCache = newTtsCache.map { Optional($0) }
-                ttsHidden = MLX.concatenated([ttsHidden!, ttsOut], axis: 1)
+                ttsConditionState = Self.latestConditionState(ttsOut)
 
                 let negInput = acousticEmbed + speechTypeEmbed
                 let (negOut, newNegCache) = ttsLanguageModel(inputsEmbeds: negInput, cache: negCache)
                 negCache = newNegCache.map { Optional($0) }
-                negHidden = MLX.concatenated([negHidden!, negOut], axis: 1)
+                negConditionState = Self.latestConditionState(negOut)
 
                 if windowLatents.count >= currentFlushTarget {
                     flushWindowLatents()

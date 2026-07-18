@@ -145,6 +145,56 @@ struct VibeVoiceConfigTests {
         #expect(dh.ffnDim == 2_688)
     }
 
+    @Test("DPM scheduler single-batch step matches legacy duplicated-batch path")
+    func schedulerSingleBatchStepMatchesDuplicatedBatchPath() {
+        let singleScheduler = VibeVoiceDPMSolverMultistepScheduler()
+        let duplicatedScheduler = VibeVoiceDPMSolverMultistepScheduler()
+        singleScheduler.setTimesteps(4)
+        duplicatedScheduler.setTimesteps(4)
+
+        var singleSpeech = MLXArray([Float(0.1), -0.2, 0.3, -0.4]).reshaped(1, 4)
+        var duplicatedSpeech = singleSpeech
+        var singlePrevX0: MLXArray? = nil
+        var duplicatedPrevX0: MLXArray? = nil
+
+        for (stepIndex, timestep) in singleScheduler.timesteps.enumerated() {
+            let base = Float(stepIndex + 1) * 0.05
+            let guidedEps = MLXArray([base, -base * 2, base * 3, -base * 4]).reshaped(1, 4)
+
+            let singleOutput = singleScheduler.step(
+                modelOutput: guidedEps,
+                timestep: timestep,
+                sample: singleSpeech,
+                prevX0: singlePrevX0
+            )
+
+            let duplicatedOutput = duplicatedScheduler.step(
+                modelOutput: concatenated([guidedEps, guidedEps], axis: 0),
+                timestep: timestep,
+                sample: concatenated([duplicatedSpeech, duplicatedSpeech], axis: 0),
+                prevX0: duplicatedPrevX0
+            )
+
+            let duplicatedPrevSample = duplicatedOutput.prevSample[..<1]
+            let prevSampleMaxDiff = MLX.max(MLX.abs(singleOutput.prevSample - duplicatedPrevSample)).item(Float.self)
+            #expect(prevSampleMaxDiff < 1e-5)
+
+            if let singleX0 = singleOutput.x0Pred, let duplicatedX0 = duplicatedOutput.x0Pred {
+                let duplicatedFirstX0 = duplicatedX0[..<1]
+                let x0MaxDiff = MLX.max(MLX.abs(singleX0 - duplicatedFirstX0)).item(Float.self)
+                #expect(x0MaxDiff < 1e-5)
+            } else {
+                #expect(singleOutput.x0Pred == nil)
+                #expect(duplicatedOutput.x0Pred == nil)
+            }
+
+            singleSpeech = singleOutput.prevSample
+            duplicatedSpeech = duplicatedPrevSample
+            singlePrevX0 = singleOutput.x0Pred
+            duplicatedPrevX0 = duplicatedOutput.x0Pred?[..<1]
+        }
+    }
+
     @Test("Acoustic tokenizer config matches reference values")
     func acousticTokenizerConfig() throws {
         let config = try JSONDecoder().decode(
@@ -340,6 +390,20 @@ struct VibeVoiceConfigTests {
 
         #expect(first == second)
         #expect(first != differentVoice)
+    }
+
+    @Test("Condition state retains only the final hidden timestep")
+    func latestConditionStateIsBounded() {
+        let hidden = MLXArray([
+            Float(1), 2,
+            3, 4,
+            5, 6,
+        ]).reshaped(1, 3, 2)
+
+        let condition = VibeVoiceTTSModel.latestConditionState(hidden)
+
+        #expect(condition.shape == [1, 1, 2])
+        #expect(condition.asArray(Float.self) == [5, 6])
     }
 
     @Test("Special token type IDs")
