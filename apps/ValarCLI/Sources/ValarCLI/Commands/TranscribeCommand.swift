@@ -139,21 +139,18 @@ struct TranscribeCommand: AsyncParsableCommand {
             )
         }
 
-        let audioData: Data
-        do {
-            audioData = try Data(contentsOf: inputURL)
-        } catch {
-            throw TranscribeCommandError(
-                message: "Failed to read audio file '\(inputURL.path)': \(OutputFormat.message(for: error))"
-            )
-        }
-
         let decodedBuffer: AudioPCMBuffer
         do {
             let ext = inputURL.pathExtension.lowercased()
             if ext == "ogg" || ext == "oga" {
+                let audioData = try BoundedFileInput.readData(
+                    from: inputURL,
+                    maximumByteCount: CLIAudioInputLimits.localEncodedAudioBytes,
+                    label: "OGG audio"
+                )
                 decodedBuffer = try ChannelAudioImporter().decode(audioData)
             } else {
+                let audioData = try Data(contentsOf: inputURL)
                 decodedBuffer = try await AudioPipeline().decode(audioData, hint: inputURL.pathExtension)
             }
         } catch {

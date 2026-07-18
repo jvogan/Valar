@@ -1,5 +1,7 @@
 import CryptoKit
 import Foundation
+import ValarModelKit
+import ValarPersistence
 
 public enum ProjectScriptMarkup {
     public struct ParsedLine: Sendable, Equatable {
@@ -21,6 +23,17 @@ public enum ProjectScriptMarkup {
             self.text = text
             self.attributes = attributes
             self.tags = tags
+        }
+
+        public var dto: ScriptMarkupLineDTO {
+            ScriptMarkupLineDTO(
+                id: "line-\(lineNumber)",
+                lineNumber: lineNumber,
+                speakerLabel: speakerLabel,
+                text: text,
+                attributes: attributes,
+                tags: tags
+            )
         }
     }
 
@@ -71,6 +84,174 @@ public enum ProjectScriptMarkup {
             let parsed = parseLine(line, lineNumber: index + 1)
             return parsed.text.isEmpty ? nil : parsed
         }
+    }
+
+    public static func lintProject(
+        project: ProjectRecord,
+        chapters: [ChapterRecord],
+        speakers: [ProjectSpeakerRecord],
+        model: CatalogModel?,
+        generatedAt: Date = .now
+    ) -> ProjectScriptLintPayloadDTO {
+        let sortedChapters = chapters.sorted { lhs, rhs in
+            lhs.index == rhs.index ? lhs.title < rhs.title : lhs.index < rhs.index
+        }
+        let parsedLinesByChapter = sortedChapters.map { chapter in
+            (chapter: chapter, lines: parseText(chapter.script))
+        }
+        let allLines = parsedLinesByChapter.flatMap { $0.lines.map(\.dto) }
+        let voiceBible = voiceBible(
+            projectID: project.id,
+            chapters: sortedChapters,
+            speakers: speakers,
+            generatedAt: generatedAt
+        )
+        var issues: [ScriptLintIssueDTO] = []
+
+        func addIssue(
+            severity: String,
+            code: String,
+            message: String,
+            lineNumber: Int? = nil,
+            chapterID: UUID? = nil,
+            speakerLabel: String? = nil,
+            tag: String? = nil
+        ) {
+            issues.append(
+                ScriptLintIssueDTO(
+                    id: "issue-\(issues.count + 1)",
+                    severity: severity,
+                    code: code,
+                    message: message,
+                    lineNumber: lineNumber,
+                    chapterID: chapterID?.uuidString,
+                    speakerLabel: speakerLabel,
+                    modelID: model?.id.rawValue,
+                    tag: tag
+                )
+            )
+        }
+
+        let declaredSpeakerNames = Set(speakers.map { $0.name.lowercased() })
+        let inferredSpeakerNames = Set(
+            (parsedLinesByChapter.flatMap { $0.lines.compactMap(\.speakerLabel) }
+                + sortedChapters.compactMap { $0.speakerLabel?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty })
+                .map { $0.lowercased() }
+        )
+        for speaker in inferredSpeakerNames.sorted() where !declaredSpeakerNames.contains(speaker) {
+            addIssue(
+                severity: "info",
+                code: "speaker_missing_voice_profile",
+                message: "Speaker '\(speaker)' appears in script markup but has no project voice profile.",
+                speakerLabel: speaker
+            )
+        }
+
+        if inferredSpeakerNames.count > 1, let model, !supportsMultipleSpeakers(model) {
+            addIssue(
+                severity: "warning",
+                code: "model_may_not_hold_cast_consistency",
+                message: "\(model.descriptor.displayName) does not declare named-speaker, preset-voice, or voice-design support; multi-speaker renders may drift."
+            )
+        }
+
+        for chapterLines in parsedLinesByChapter {
+            for line in chapterLines.lines {
+                let expressiveTokens = line.tags + line.attributes.keys.sorted()
+                guard !expressiveTokens.isEmpty else { continue }
+                if let model, !supportsExpressiveMarkup(model) {
+                    for tag in expressiveTokens {
+                        addIssue(
+                            severity: "warning",
+                            code: "model_may_ignore_expression",
+                            message: "\(model.descriptor.displayName) may ignore expressive tag '\(tag)'. Choose a voice-design model or remove unsupported markup.",
+                            lineNumber: line.lineNumber,
+                            chapterID: chapterLines.chapter.id,
+                            speakerLabel: line.speakerLabel,
+                            tag: tag
+                        )
+                    }
+                }
+            }
+        }
+
+        if let model, !model.descriptor.voiceSupport.features.contains(.stableNarrator) {
+            for chapter in sortedChapters where chapter.script.count > 8_000 {
+                addIssue(
+                    severity: "warning",
+                    code: "long_segment_drift_risk",
+                    message: "Chapter '\(chapter.title)' is long and the selected model does not declare stable narrator support. Split the chapter or use a stable narrator voice for long renders.",
+                    chapterID: chapter.id,
+                    speakerLabel: chapter.speakerLabel
+                )
+            }
+        }
+
+        let warningCount = issues.filter { $0.severity == "warning" }.count
+        let errorCount = issues.filter { $0.severity == "error" }.count
+        let message = issues.isEmpty
+            ? "No script lint issues found for '\(project.title)'."
+            : "Found \(issues.count) script lint issue(s) for '\(project.title)'."
+
+        return ProjectScriptLintPayloadDTO(
+            message: message,
+            projectID: project.id.uuidString,
+            projectTitle: project.title,
+            modelID: model?.id.rawValue,
+            issueCount: issues.count,
+            warningCount: warningCount,
+            errorCount: errorCount,
+            lines: allLines,
+            issues: issues,
+            voiceBible: voiceBible
+        )
+    }
+
+    public static func voiceBible(
+        projectID: UUID,
+        chapters: [ChapterRecord],
+        speakers: [ProjectSpeakerRecord],
+        generatedAt: Date = .now
+    ) -> ProjectVoiceBibleDTO {
+        let inferredChapterSpeakers = chapters.flatMap { chapter in
+            let markupSpeakers = parseText(chapter.script)
+                .compactMap { $0.speakerLabel?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty }
+            if !markupSpeakers.isEmpty {
+                return markupSpeakers
+            }
+            return chapter.speakerLabel
+                .flatMap { $0.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty }
+                .map { [$0] } ?? []
+        }
+        let speakerCounts = Dictionary(
+            grouping: inferredChapterSpeakers,
+            by: { $0.lowercased() }
+        ).mapValues(\.count)
+        let declaredByName = Dictionary(
+            uniqueKeysWithValues: speakers.map { ($0.name.lowercased(), $0) }
+        )
+        let names = Set(speakerCounts.keys).union(declaredByName.keys).sorted()
+        let profiles = names.map { key in
+            let declared = declaredByName[key]
+            let displayName = declared?.name ?? key
+            let warnings = declared == nil
+                ? ["No voice profile has been assigned for this speaker."]
+                : []
+            return ProjectVoiceProfileDTO(
+                id: declared?.id.uuidString ?? stableID(for: "\(projectID.uuidString):\(key)"),
+                name: displayName,
+                voiceModelID: declared?.voiceModelID,
+                language: declared?.language ?? "auto",
+                segmentCount: speakerCounts[key] ?? 0,
+                warnings: warnings
+            )
+        }
+        return ProjectVoiceBibleDTO(
+            projectID: projectID.uuidString,
+            generatedAt: iso8601String(from: generatedAt),
+            profiles: profiles,
+            consistencyPolicy: VoiceConsistencyPolicyDTO()
+        )
     }
 
     public static func sourceHash(title: String, text: String, speakerLabel: String?) -> String {
@@ -170,6 +351,33 @@ private extension ProjectScriptMarkup {
             result.append(normalized)
         }
         return result
+    }
+
+    static func supportsMultipleSpeakers(_ model: CatalogModel) -> Bool {
+        let voiceFeatures = Set(model.descriptor.voiceSupport.features)
+        return voiceFeatures.contains(.namedSpeakers)
+            || voiceFeatures.contains(.presetVoices)
+            || voiceFeatures.contains(.voiceDesign)
+            || model.descriptor.capabilities.contains(.presetVoices)
+    }
+
+    static func supportsExpressiveMarkup(_ model: CatalogModel) -> Bool {
+        let capabilities = model.descriptor.capabilities
+        let voiceFeatures = Set(model.descriptor.voiceSupport.features)
+        return capabilities.contains(.voiceDesign)
+            || capabilities.contains(.audioConditioning)
+            || voiceFeatures.contains(.voiceDesign)
+    }
+
+    static func stableID(for raw: String) -> String {
+        let digest = SHA256.hash(data: Data(raw.utf8))
+        return digest.prefix(16).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func iso8601String(from date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
     }
 }
 

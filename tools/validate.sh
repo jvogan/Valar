@@ -121,6 +121,7 @@ test_targets=(
   "Packages/ValarModelKit"
   "Packages/ValarPersistence"
   "Packages/ValarCore"
+  "apps/ValarCLI"
 )
 
 for dir in "${build_targets[@]}"; do
@@ -201,7 +202,7 @@ fi
 diff -u "$expected_ids" "$actual_ids"
 
 jq -e '.ok == true and .data.model.id == "mlx-community/Soprano-1.1-80M-bf16" and .data.model.supportTier == "supported" and .data.model.distributionTier == "bundledFirstRun" and .data.model.releaseEligible == true' "$soprano_json" >/dev/null
-jq -e '.ok == true and .data.model.id == "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16" and .data.model.supportTier == "supported" and .data.model.releaseEligible == true' "$qwen_json" >/dev/null
+jq -e '.ok == true and .data.model.id == "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16" and .data.model.supportTier == "supported" and .data.model.releaseEligible == true and .data.model.licenseName == "Apache-2.0"' "$qwen_json" >/dev/null
 jq -e '.ok == true and .data.model.id == "mlx-community/VibeVoice-Realtime-0.5B-4bit" and .data.model.supportTier == "preview" and .data.model.distributionTier == "compatibilityPreview" and .data.model.qualityTierByLanguage.en == "supported" and .data.model.qualityTierByLanguage.hi == "experimental"' "$vibevoice_json" >/dev/null
 jq -e '.ok == true and .data.model.id == "mlx-community/Voxtral-4B-TTS-2603-mlx-4bit" and .data.model.supportTier == "preview" and .data.model.releaseEligible == false and .data.model.licenseName == "CC BY-NC 4.0"' "$voxtral_json" >/dev/null
 jq -e '.ok == true and .data.model.id == "apple/system-tts" and .data.model.installState == "installed" and .data.model.supportTier == "supported" and .data.model.distributionTier == "bundledFirstRun"' "$apple_tts_json" >/dev/null
@@ -223,12 +224,11 @@ rg -q "make quickstart" README.md docs/model-quickstart.md docs/prerequisites-an
 rg -q "make first-clip" README.md docs/model-quickstart.md AGENTS.md
 [[ -f "docs/prerequisites-and-expectations.md" ]]
 [[ -f "docs/app-from-xcode.md" ]]
-[[ -f "docs/release-maintainers.md" ]]
 [[ ! -e "examples/bible-audiobook" ]] || {
   echo "Error: experimental example subtree examples/bible-audiobook should not be in the public repo." >&2
   exit 1
 }
-if rg -n "ValarTTS" README.md docs/README.md docs/working-models.md docs/model-quickstart.md docs/prerequisites-and-expectations.md docs/app-from-xcode.md docs/release-maintainers.md docs/integrations.md examples/README.md examples/headless-synthesis.swift >/dev/null; then
+if rg -n "ValarTTS" README.md docs/README.md docs/working-models.md docs/model-quickstart.md docs/prerequisites-and-expectations.md docs/app-from-xcode.md docs/integrations.md examples/README.md examples/headless-synthesis.swift >/dev/null; then
   echo "Error: public docs should use Valar, not the old ValarTTS product name." >&2
   exit 1
 fi

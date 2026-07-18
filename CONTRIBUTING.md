@@ -37,7 +37,6 @@ For the public release gates:
 make audit-and-secret-scan
 ```
 
-Maintainers currently port accepted public changes back through the release-maintainer flow before the next public sync. See [docs/release-maintainers.md](./docs/release-maintainers.md).
 Use [SUPPORT.md](./SUPPORT.md) for routine help channels and [SECURITY.md](./SECURITY.md) for vulnerability reporting.
 
 SwiftPM and MLX builds can create large `.build` trees. Keep temporary build output in ignored directories, and prefer the validation scripts over ad hoc cache copies when preparing a public change.

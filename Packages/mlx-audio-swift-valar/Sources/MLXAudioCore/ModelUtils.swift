@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import HuggingFace
 
@@ -179,7 +180,7 @@ public enum ModelUtils {
             revision: "main",
             matching: Array(allowedExtensions),
             progressHandler: { progress in
-                print("\(progress.completedUnitCount)/\(progress.totalUnitCount) files")
+                printDownloadProgress(progress)
             }
         )
 
@@ -622,6 +623,30 @@ public enum ModelUtils {
 
         return mentionsMetaRepo && mentionsAccessFailure
     }
+
+    private static func printDownloadProgress(_ progress: Progress) {
+        guard isatty(STDOUT_FILENO) != 0 else { return }
+
+        let message = downloadProgressMessage(for: progress)
+        FileHandle.standardOutput.write(Data(("\r\(message)").utf8))
+        if progress.totalUnitCount > 0, progress.completedUnitCount >= progress.totalUnitCount {
+            FileHandle.standardOutput.write(Data("\n".utf8))
+        }
+    }
+
+    static func downloadProgressMessage(for progress: Progress) -> String {
+        let completed = max(0, progress.completedUnitCount)
+        let total = progress.totalUnitCount
+        if total > 0 {
+            let percent = min(100, Int((Double(completed) / Double(total) * 100).rounded()))
+            return "\(formattedBytes(completed)) / \(formattedBytes(total)) (\(percent)%)"
+        }
+        return "\(formattedBytes(completed)) downloaded"
+    }
+
+    private static func formattedBytes(_ byteCount: Int64) -> String {
+        ByteCountFormatter.string(fromByteCount: byteCount, countStyle: .file)
+    }
 }
 
 public enum ModelUtilsError: LocalizedError {
@@ -635,10 +660,10 @@ public enum ModelUtilsError: LocalizedError {
         switch self {
         case .incompleteDownload(let repo):
             return "Downloaded model '\(repo)' has missing or zero-byte weight files. "
-                + "The cache has been cleared — please try again."
+                + "The incomplete cache entry was cleared; verify the repository contains non-empty model weights before installing again."
         case .missingRequiredFiles(let repo, let requiredPaths):
             return "Downloaded model '\(repo)' is missing required files: \(requiredPaths.joined(separator: ", ")). "
-                + "The cache has been cleared — please try again."
+                + "The incomplete cache entry was cleared; install cannot continue until those files are available."
         case .missingTadaPackFiles(let path, let missingPaths):
             return "Incomplete TADA pack at \(path). Missing: \(missingPaths.joined(separator: ", ")). "
                 + "Expected self-contained layout: model/config.json, model/weights.safetensors, encoder/weights.safetensors, decoder/weights.safetensors, aligner/weights.safetensors, tokenizer.json."

@@ -172,14 +172,6 @@ struct DoctorCommand: AsyncParsableCommand {
         if hasVisibleOrInstalledVoxtral, let toolingIssue = voxtralToolingIssue() {
             issues.append(toolingIssue)
         }
-        let hasVisibleTADA = catalog.contains { $0.familyID == .tadaTTS }
-        let hasInstalledTADA = installedFamilyIDs.contains(ModelFamilyID.tadaTTS.rawValue)
-        if hasVisibleTADA,
-           !hasInstalledTADA,
-           let tadaTokenizerIssue = ModelInstaller.tadaTokenizerInstallIssue() {
-            issues.append(tadaTokenizerIssue)
-        }
-
         // Daemon health
         var daemonReachable = false
         if let url = daemonBaseURL?.appendingPathComponent("v1/health") {

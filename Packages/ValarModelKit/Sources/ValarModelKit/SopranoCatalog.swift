@@ -47,7 +47,7 @@ public enum SopranoCatalog {
             ),
             promptSchema: surface.promptSchema,
             licenses: [
-                LicenseSpec(name: "Model license", sourceURL: remoteURL, requiresAttribution: true),
+                LicenseSpec(name: "Apache-2.0", sourceURL: remoteURL, requiresAttribution: true),
             ],
             notes: "Fastest first-run local TTS option in Valar. Best for simple single-speaker synthesis and quick local setup."
         )

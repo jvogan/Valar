@@ -48,23 +48,17 @@ extension VoicesCommand {
 
             let presetVoices = voices.filter(\.isModelDeclaredPreset)
             let savedQwenVoices = voices.filter { !$0.isModelDeclaredPreset && $0.inferredFamilyID == ModelFamilyID.qwen3TTS.rawValue }
-            let savedTADAVoices = voices.filter { !$0.isModelDeclaredPreset && $0.inferredFamilyID == ModelFamilyID.tadaTTS.rawValue }
             let otherSavedVoices = voices.filter {
                 !$0.isModelDeclaredPreset
                     && $0.inferredFamilyID != ModelFamilyID.qwen3TTS.rawValue
-                    && $0.inferredFamilyID != ModelFamilyID.tadaTTS.rawValue
             }
 
             Self.printSection(title: "Preset Voices", voices: presetVoices)
-            if !presetVoices.isEmpty, (!savedQwenVoices.isEmpty || !savedTADAVoices.isEmpty || !otherSavedVoices.isEmpty) {
+            if !presetVoices.isEmpty, (!savedQwenVoices.isEmpty || !otherSavedVoices.isEmpty) {
                 print("")
             }
             Self.printSection(title: "Saved Qwen Voices", voices: savedQwenVoices)
-            if !savedQwenVoices.isEmpty, (!savedTADAVoices.isEmpty || !otherSavedVoices.isEmpty) {
-                print("")
-            }
-            Self.printSection(title: "Saved TADA Voices", voices: savedTADAVoices)
-            if !savedTADAVoices.isEmpty, !otherSavedVoices.isEmpty {
+            if !savedQwenVoices.isEmpty, !otherSavedVoices.isEmpty {
                 print("")
             }
             Self.printSection(title: "Other Saved Voices", voices: otherSavedVoices)
@@ -275,7 +269,7 @@ extension VoicesCommand {
         @Option(name: .long, help: "Reference transcript for the audio clip. Required when saving a cloned voice.")
         var transcript: String?
 
-        @Option(name: .long, help: "Optional model ID or alias to use for cloning (for example HumeAI/mlx-tada-3b). If omitted, Valar uses the Qwen Base clone-prompt lane and only falls back to TADA when Base is unavailable.")
+        @Option(name: .long, help: "Optional model ID or alias to use for cloning. If omitted, Valar uses the Qwen Base clone-prompt lane.")
         var model: String?
 
         mutating func run() async throws {

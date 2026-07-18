@@ -47,7 +47,7 @@ struct VoiceCloneWizardView: View {
                 Text("Clone Model")
                     .font(.headline)
                 if availableModels.isEmpty {
-                    Text("Install a clone-capable model first. TADA is the strongest multilingual cloning lane; Qwen remains the fallback saved-voice lane.")
+                    Text("Install Qwen3-TTS Base before creating a reusable cloned voice.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
@@ -66,7 +66,7 @@ struct VoiceCloneWizardView: View {
 
                     if let selectedOption = selectedModelOption {
                         Text(selectedOption.familyID == .tadaTTS
-                            ? "TADA is the strongest multilingual saved-voice path. Valar stores a reusable local conditioning bundle for the saved voice."
+                            ? "This compatibility model stores a reusable local conditioning bundle for the saved voice."
                             : "Qwen stores a reusable local cloned voice from the reference clip and transcript.")
                             .font(.caption)
                             .foregroundStyle(.secondary)

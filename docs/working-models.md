@@ -15,12 +15,12 @@ Only the exact IDs below are part of the main public onboarding path.
 
 | Family | Exact install ID | Support status | Download posture | Rough local footprint | License | Best use |
 | --- | --- | --- | --- | --- | --- | --- |
-| Soprano 1.1 80M | `mlx-community/Soprano-1.1-80M-bf16` | Supported | Recommended first install | About `285 MB` | Model license | Smallest first run and starter demo lane |
-| Qwen3-TTS 1.7B Base | `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Main narrator lane and stable long-form speech |
-| Qwen3-TTS 1.7B CustomVoice | `mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Named speakers and saved voices |
-| Qwen3-TTS 1.7B VoiceDesign | `mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16` | Supported | Optional install | About `4.2 GB` | Qwen License Agreement | Text-described voice creation |
-| Qwen3-ASR 0.6B | `mlx-community/Qwen3-ASR-0.6B-8bit` | Supported | Optional install | About `1.0 GB` | Qwen License Agreement | Speech recognition and transcription |
-| Qwen3-ForcedAligner 0.6B | `mlx-community/Qwen3-ForcedAligner-0.6B-8bit` | Supported | Optional install | About `1.3 GB` | Qwen License Agreement | Word-level timestamps and alignment |
+| Soprano 1.1 80M | `mlx-community/Soprano-1.1-80M-bf16` | Supported | Recommended first install | About `285 MB` | Apache-2.0 | Smallest first run and starter demo lane |
+| Qwen3-TTS 1.7B Base | `mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16` | Supported | Optional install | About `4.2 GB` | Apache-2.0 | Main narrator lane and stable long-form speech |
+| Qwen3-TTS 1.7B CustomVoice | `mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16` | Supported | Optional install | About `4.2 GB` | Apache-2.0 | Named speakers and saved voices |
+| Qwen3-TTS 1.7B VoiceDesign | `mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16` | Supported | Optional install | About `4.2 GB` | Apache-2.0 | Text-described voice creation |
+| Qwen3-ASR 0.6B | `mlx-community/Qwen3-ASR-0.6B-8bit` | Supported | Optional install | About `1.0 GB` | Apache-2.0 | Speech recognition and transcription |
+| Qwen3-ForcedAligner 0.6B | `mlx-community/Qwen3-ForcedAligner-0.6B-8bit` | Supported | Optional install | About `1.3 GB` | Apache-2.0 | Word-level timestamps and alignment |
 | VibeVoice Realtime 0.5B (4-bit) | `mlx-community/VibeVoice-Realtime-0.5B-4bit` | Preview | Preview-only optional install | About `700 MB` | MIT | Fast preset-voice TTS, English-first |
 | Voxtral 4B-TTS 2603 (MLX 4-bit) | `mlx-community/Voxtral-4B-TTS-2603-mlx-4bit` | Preview | Explicit non-commercial opt-in | About `2.4 GB` | CC BY-NC 4.0 | Non-commercial multilingual preset-voice lane |
 
@@ -65,8 +65,8 @@ The CLI and daemon expose these public compatibility fields directly:
 
 | Family | Public posture |
 | --- | --- |
-| `Soprano` | Model license with attribution in the public catalog; recommended first install. |
-| `Qwen` | Qwen License Agreement; check upstream terms before commercial deployment. |
+| `Soprano` | Apache-2.0; recommended first install. |
+| `Qwen` | Apache-2.0; check the exact upstream model card before deployment. |
 | `VibeVoice` | MIT model license in the public catalog; optional compatibility preview. |
 | `Voxtral` | CC BY-NC 4.0; hidden unless explicitly enabled for non-commercial use. |
 

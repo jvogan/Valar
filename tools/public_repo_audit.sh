@@ -11,9 +11,8 @@ usage() {
 Usage: tools/public_repo_audit.sh [--root PATH] [--exclude-file PATH]
 
 Scans tracked or exported files for public-repo blockers:
-- private workstation paths and mounted volumes
-- private Claude / launchd / operator assumptions
-- private snapshot and corpus scaffolding
+- local workstation paths and mounted volumes
+- generated output and non-public maintenance files
 - obvious secret/token formats and secret environment names
 
 When run inside a git checkout, the audit uses tracked files only.
@@ -123,6 +122,10 @@ while IFS= read -r regex; do
   [[ -n "$regex" ]] || continue
   CONTENT_BLOCK_REGEXES+=("$regex")
 done < <(valar_public_repo_content_block_regexes)
+while IFS= read -r regex; do
+  [[ -n "$regex" ]] || continue
+  CONTENT_BLOCK_REGEXES+=("$regex")
+done < <(valar_public_repo_local_block_regexes)
 if declare -f valar_public_repo_current_only_content_block_regexes >/dev/null; then
   while IFS= read -r regex; do
     [[ -n "$regex" ]] || continue
@@ -143,9 +146,6 @@ while IFS= read -r rel; do
   [[ -f "$SCAN_ROOT/$rel" ]] || continue
   case "$rel" in
     .gitleaks.toml|.gitleaksignore)
-      continue
-      ;;
-    tools/public_repo_audit.sh|tools/public_repo_history_scan.sh|tools/public_repo_rules.sh|tools/public_repo_secret_scan.sh)
       continue
       ;;
   esac

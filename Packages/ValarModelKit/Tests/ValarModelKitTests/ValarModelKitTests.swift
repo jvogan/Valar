@@ -207,6 +207,17 @@ final class ValarModelKitTests: XCTestCase {
         XCTAssertEqual(sopranoEntry?.manifest.domain, .tts)
         XCTAssertTrue(sopranoEntry?.manifest.capabilities.contains(.speechSynthesis) == true)
         XCTAssertEqual(sopranoEntry?.manifest.supportedBackends.map(\.backendKind), [.mlx])
+        XCTAssertEqual(sopranoEntry?.manifest.licenses.first?.name, "Apache-2.0")
+    }
+
+    func testQwenCatalogUsesUpstreamApacheLicenseMetadata() throws {
+        let entry = try XCTUnwrap(
+            SupportedModelCatalog.entry(for: "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16")
+        )
+
+        XCTAssertEqual(entry.manifest.licenses.first?.name, "Apache-2.0")
+        XCTAssertEqual(entry.manifest.licenses.first?.spdxIdentifier, "Apache-2.0")
+        XCTAssertFalse(entry.manifest.licenses.first?.isNonCommercial ?? true)
     }
 
     func testSupportedModelCatalogIncludesAppleSystemBackups() {

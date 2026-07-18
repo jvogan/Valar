@@ -29,8 +29,4 @@ This directory is the public doc set for Valar.
 - [App from Xcode](./app-from-xcode.md)
 - [Xcode Troubleshooting](./xcode-troubleshooting.md)
 - [Architecture](./architecture.md)
-
-## Maintainer Guides
-
-- [Release Maintainers](./release-maintainers.md)
-- [GitHub Repo Settings](./github-repo-settings.md)
+- [Long-Form Project Cookbook](./long-form-project-cookbook.md)

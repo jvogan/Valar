@@ -23,7 +23,3 @@ Use [working-models.md](./working-models.md) for the exact public install IDs an
 - cite the public repo for the CLI, daemon, bridge, and app source
 - cite the relevant upstream model card for model behavior, license, and constraints
 - cite `mlx-audio-swift-valar` and its upstream references for backend provenance
-
-## Historical Notes
-
-The older Python parity harness remains a useful reference point, but the maintained public workflow is the current Swift CLI + daemon + MCP bridge stack in this repo.

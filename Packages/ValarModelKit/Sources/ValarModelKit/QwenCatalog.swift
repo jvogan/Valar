@@ -172,7 +172,12 @@ public enum QwenCatalog {
             ),
             promptSchema: surface.promptSchema,
             licenses: [
-                LicenseSpec(name: "Model license", sourceURL: remoteURL, requiresAttribution: true),
+                LicenseSpec(
+                    name: "Apache-2.0",
+                    spdxIdentifier: "Apache-2.0",
+                    sourceURL: remoteURL,
+                    requiresAttribution: true
+                ),
             ],
             notes: nil
         )

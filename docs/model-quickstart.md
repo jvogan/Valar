@@ -77,11 +77,26 @@ Create a `.valarproject` bundle from a local TXT, Markdown, or simple dialogue s
 
 ```bash
 swift run --package-path apps/ValarCLI valartts projects import ./script.md --split-mode markdown-headings
+swift run --package-path apps/ValarCLI valartts projects lint
 swift run --package-path apps/ValarCLI valartts projects info
 swift run --package-path apps/ValarCLI valartts projects save
 ```
 
 Supported split modes are `markdown-headings`, `paragraphs`, `lines`, `dialogue`, and `whole-document`. Dialogue mode understands simple speaker prefixes such as `[Narrator] text` and `Narrator: text`.
+
+Use `projects lint` before long renders to check script markup, speaker labels, voice profile coverage, and selected model fit:
+
+```bash
+swift run --package-path apps/ValarCLI valartts projects lint --model mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16
+```
+
+After creating chapter exports, write a portable manifest for review, handoff, or publishing workflows:
+
+```bash
+swift run --package-path apps/ValarCLI valartts projects export-pack
+```
+
+The export pack writes `valar-export-pack.json` under the project bundle by default. Artifact paths inside the manifest are relative to the `.valarproject` bundle root.
 
 ## One-Command Smoke Tests
 
